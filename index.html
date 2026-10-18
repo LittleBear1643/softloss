@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>soft loss</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    overflow: hidden;
+    gap: 10px;
+    font-family: sans-serif;
+    font-size: 12px;
+    padding: 10px;
+  }
+  canvas { border: 3px solid #000000; display: block; }
+  .controls {
+    width: 250px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .controls input[type="range"] { flex: 1; min-width: 0; }
+  .controls span { min-width: 40px; text-align: right; font-weight: bold; }
+  .controls input[type="number"] { width: 80px; padding: 3px; }
+  .controls button { padding: 3px 8px; }
+  .info {
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  #result {
+    width: 250px;
+    min-height: 1.5em;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="250" height="250"></canvas>
+
+<div class="controls">
+  <span>Баланс: <span id="balance">10000.00</span> ₽</span>
+</div>
+
+<div class="controls">
+  <input type="number" id="bet" value="1000" min="1" step="1">
+  <button id="spin">Прокрутить</button>
+  <button id="reset">Заново</button>
+</div>
+
+<div class="controls">
+  <label for="chance">Шанс:</label>
+  <input type="range" id="chance" min="5" max="75" value="30" step="1">
+  <span id="chanceValue">30%</span>
+</div>
+
+<div class="info">
+  <span>Выигрыш: ×<span id="winCoef">0</span> (<span id="winAmount">0</span> ₽)</span>
+  <span>Возврат: ×<span id="returnCoef">0</span> (<span id="returnAmount">0</span> ₽)</span>
+</div>
+
+<div id="result"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('chance');
+const chanceValue = document.getElementById('chanceValue');
+const betInput = document.getElementById('bet');
+const spinBtn = document.getElementById('spin');
+const resetBtn = document.getElementById('reset');
+const balanceEl = document.getElementById('balance');
+const winCoefEl = document.getElementById('winCoef');
+const winAmountEl = document.getElementById('winAmount');
+const returnCoefEl = document.getElementById('returnCoef');
+const returnAmountEl = document.getElementById('returnAmount');
+const resultEl = document.getElementById('result');
+
+const FIELD_SIZE = 250;
+const BALL_RADIUS = 6.25;
+const MAX_SPEED = 25;
+const FRICTION = 0.99;
+const MIN_SPEED = 0.025;
+const ACCEL_RATE = (1 - FRICTION) * 5;
+const MARGIN = 0.05;
+const INITIAL_BALANCE = 10000;
+const STORAGE_KEY = 'ricochet_balance';
+
+const BASE_SECTIONS = [
+  { percent: 10, color: '#e00000', type: 'red' },
+  { percent: 20, color: '#00b300', type: 'green' },
+  { percent: 10, color: '#e00000', type: 'red' }
+];
+
+let sections = [];
+let greenPercent = 30;
+let spinGreen = 30;
+let currentBet = 0;
+let pendingResult = false;
+
+let balance = (() => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  const parsed = stored !== null ? parseFloat(stored) : NaN;
+  return Number.isFinite(parsed) ? parsed : INITIAL_BALANCE;
+})();
+
+let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
+let flying = false, accelerating = false;
+
+function saveBalance() {
+  localStorage.setItem(STORAGE_KEY, String(balance));
+}
+
+function calcCoefficients(p) {
+  const R = 0.5 * (1 - p);
+  const W = 1 + ((1 - p) * (1 - R) - MARGIN) / p;
+  return { W, R };
+}
+
+function buildSections(green) {
+  const nonGreenBase = BASE_SECTIONS
+    .filter(s => s.type !== 'green')
+    .reduce((sum, s) => sum + s.percent, 0);
+  const nonGreenScale = (100 - green) / nonGreenBase;
+  const result = [];
+  for (const s of BASE_SECTIONS) {
+    if (s.type === 'green') {
+      result.push({ percent: green, color: s.color, type: 'green' });
+    } else {
+      result.push({ percent: s.percent * nonGreenScale, color: s.color, type: s.type });
+    }
+  }
+  return result;
+}
+
+function updateSections() {
+  greenPercent = Number(slider.value);
+  chanceValue.textContent = greenPercent + '%';
+  sections = buildSections(greenPercent);
+  updateInfo();
+  draw();
+}
+
+function updateInfo() {
+  const bet = Number(betInput.value) || 0;
+  const { W, R } = calcCoefficients(greenPercent / 100);
+  winCoefEl.textContent = W.toFixed(3);
+  returnCoefEl.textContent = R.toFixed(3);
+  winAmountEl.textContent = Math.round(bet * W);
+  returnAmountEl.textContent = Math.round(bet * R);
+}
+
+function updateControls() {
+  const busy = flying || pendingResult;
+  const bet = Number(betInput.value) || 0;
+  spinBtn.disabled = busy || bet <= 0 || bet > balance;
+  betInput.disabled = busy;
+  slider.disabled = busy;
+  balanceEl.textContent = balance.toFixed(2);
+}
+
+function spawnBall() {
+  x = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
+  y = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
+  vx = 0; vy = 0; speed = 0; flying = false; accelerating = false;
+}
+
+function launch() {
+  const angle = Math.random() * Math.PI * 2;
+  dirX = Math.cos(angle);
+  dirY = Math.sin(angle);
+  speed = 0; vx = 0; vy = 0;
+  flying = true; accelerating = true;
+}
+
+function update() {
+  if (!flying) return;
+  if (accelerating) {
+    speed += ACCEL_RATE * MAX_SPEED;
+    if (speed >= MAX_SPEED) { speed = MAX_SPEED; accelerating = false; }
+  } else {
+    speed *= FRICTION;
+  }
+  vx = dirX * speed;
+  vy = dirY * speed;
+  x += vx;
+  y += vy;
+  if (x - BALL_RADIUS <= 0) { x = BALL_RADIUS; dirX = Math.abs(dirX); }
+  else if (x + BALL_RADIUS >= FIELD_SIZE) { x = FIELD_SIZE - BALL_RADIUS; dirX = -Math.abs(dirX); }
+  if (y - BALL_RADIUS <= 0) { y = BALL_RADIUS; dirY = Math.abs(dirY); }
+  else if (y + BALL_RADIUS >= FIELD_SIZE) { y = FIELD_SIZE - BALL_RADIUS; dirY = -Math.abs(dirY); }
+  if (!accelerating && speed < MIN_SPEED) {
+    speed = 0; vx = 0; vy = 0; flying = false;
+  }
+}
+
+function drawField() {
+  let offset = FIELD_SIZE;
+  for (const section of sections) {
+    const size = FIELD_SIZE * section.percent / 100;
+    offset -= size;
+    ctx.fillStyle = section.color;
+    ctx.fillRect(0, offset, FIELD_SIZE, size);
+  }
+}
+
+function draw() {
+  drawField();
+  ctx.beginPath();
+  ctx.arc(x, y, BALL_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#000000';
+  ctx.stroke();
+}
+
+function isInGreenZone() {
+  const redSize = (100 - spinGreen) / 2;
+  const greenStart = redSize / 100 * FIELD_SIZE;
+  const greenEnd = (redSize + spinGreen) / 100 * FIELD_SIZE;
+  return y >= greenStart && y <= greenEnd;
+}
+
+function checkResult() {
+  const { W, R } = calcCoefficients(spinGreen / 100);
+  if (isInGreenZone()) {
+    const payout = currentBet * W;
+    balance += payout - currentBet;
+    resultEl.textContent = `Выигрыш! +${(payout - currentBet).toFixed(2)} ₽ (×${W.toFixed(3)})`;
+    resultEl.style.color = '#00b300';
+  } else {
+    const payout = currentBet * R;
+    balance += payout - currentBet;
+    resultEl.textContent = `Возврат: ${(payout - currentBet).toFixed(2)} ₽ (×${R.toFixed(3)})`;
+    resultEl.style.color = '#e00000';
+  }
+  saveBalance();
+  pendingResult = false;
+  updateInfo();
+  updateControls();
+}
+
+function spin() {
+  if (flying || pendingResult) return;
+  const bet = Number(betInput.value);
+  if (!bet || bet <= 0 || bet > balance) return;
+  currentBet = bet;
+  spinGreen = greenPercent;
+  resultEl.textContent = '';
+  pendingResult = true;
+  spawnBall();
+  launch();
+  updateControls();
+}
+
+function resetGame() {
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+function loop() {
+  update();
+  if (pendingResult && !flying) checkResult();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+slider.addEventListener('input', updateSections);
+betInput.addEventListener('input', () => { updateInfo(); updateControls(); });
+spinBtn.addEventListener('click', spin);
+resetBtn.addEventListener('click', resetGame);
+
+updateSections();
+spawnBall();
+updateControls();
+loop();
+</script>
+</body>
+</html>
