@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>soft loss</title>
+<title>Рикошет шарика</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -234,12 +234,12 @@ function checkResult() {
   const { W, R } = calcCoefficients(spinGreen / 100);
   if (isInGreenZone()) {
     const payout = currentBet * W;
-    balance += payout - currentBet;
+    balance += payout;
     resultEl.textContent = `Выигрыш! +${(payout - currentBet).toFixed(2)} ₽ (×${W.toFixed(3)})`;
     resultEl.style.color = '#00b300';
   } else {
     const payout = currentBet * R;
-    balance += payout - currentBet;
+    balance += payout;
     resultEl.textContent = `Возврат: ${(payout - currentBet).toFixed(2)} ₽ (×${R.toFixed(3)})`;
     resultEl.style.color = '#e00000';
   }
@@ -255,6 +255,8 @@ function spin() {
   if (!bet || bet <= 0 || bet > balance) return;
   currentBet = bet;
   spinGreen = greenPercent;
+  balance -= currentBet;
+  saveBalance();
   resultEl.textContent = '';
   pendingResult = true;
   spawnBall();
