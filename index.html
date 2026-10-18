@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Рикошет шарика</title>
+<title>softloss</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -57,8 +57,12 @@
 </div>
 
 <div class="controls">
+  <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
+</div>
+
+<div class="controls">
   <label for="chance">Шанс:</label>
-  <input type="range" id="chance" min="5" max="75" value="30" step="1">
+  <input type="range" id="chance" min="10" max="75" value="30" step="1">
   <span id="chanceValue">30%</span>
 </div>
 
@@ -77,6 +81,7 @@ const chanceValue = document.getElementById('chanceValue');
 const betInput = document.getElementById('bet');
 const spinBtn = document.getElementById('spin');
 const resetBtn = document.getElementById('reset');
+const fastModeEl = document.getElementById('fastMode');
 const balanceEl = document.getElementById('balance');
 const winCoefEl = document.getElementById('winCoef');
 const winAmountEl = document.getElementById('winAmount');
@@ -90,17 +95,14 @@ const MAX_SPEED = 25;
 const FRICTION = 0.99;
 const MIN_SPEED = 0.025;
 const ACCEL_RATE = (1 - FRICTION) * 5;
+const FAST_MULTIPLIER = 3;
 const MARGIN = 0.05;
 const INITIAL_BALANCE = 10000;
 const STORAGE_KEY = 'ricochet_balance';
+const COLORS = { red: '#e00000', green: '#00b300' };
 
-const BASE_SECTIONS = [
-  { percent: 10, color: '#e00000', type: 'red' },
-  { percent: 20, color: '#00b300', type: 'green' },
-  { percent: 10, color: '#e00000', type: 'red' }
-];
-
-let sections = [];
+let currentLayout = null;
+let fieldPainted = false;
 let greenPercent = 30;
 let spinGreen = 30;
 let currentBet = 0;
@@ -125,28 +127,43 @@ function calcCoefficients(p) {
   return { W, R };
 }
 
-function buildSections(green) {
-  const nonGreenBase = BASE_SECTIONS
-    .filter(s => s.type !== 'green')
-    .reduce((sum, s) => sum + s.percent, 0);
-  const nonGreenScale = (100 - green) / nonGreenBase;
-  const result = [];
-  for (const s of BASE_SECTIONS) {
-    if (s.type === 'green') {
-      result.push({ percent: green, color: s.color, type: 'green' });
-    } else {
-      result.push({ percent: s.percent * nonGreenScale, color: s.color, type: s.type });
-    }
+function buildLayout(greenPct) {
+  const dirs = ['tb', 'bt', 'lr', 'rl'];
+  const dir = dirs[Math.floor(Math.random() * 4)];
+
+  const canRGR = (100 - greenPct) >= 20;
+  const canGRG = greenPct >= 20;
+
+  let pattern;
+  if (canRGR && canGRG) pattern = Math.random() < 0.5 ? 'RGR' : 'GRG';
+  else if (canGRG) pattern = 'GRG';
+  else pattern = 'RGR';
+
+  let sections;
+  if (pattern === 'RGR') {
+    const redTotal = 100 - greenPct;
+    const r1 = 10 + Math.random() * (redTotal - 20);
+    sections = [
+      { percent: r1, type: 'red' },
+      { percent: greenPct, type: 'green' },
+      { percent: redTotal - r1, type: 'red' }
+    ];
+  } else {
+    const g1 = 10 + Math.random() * (greenPct - 20);
+    sections = [
+      { percent: g1, type: 'green' },
+      { percent: 100 - greenPct, type: 'red' },
+      { percent: greenPct - g1, type: 'green' }
+    ];
   }
-  return result;
+
+  return { dir, sections };
 }
 
 function updateSections() {
   greenPercent = Number(slider.value);
   chanceValue.textContent = greenPercent + '%';
-  sections = buildSections(greenPercent);
   updateInfo();
-  draw();
 }
 
 function updateInfo() {
@@ -154,8 +171,8 @@ function updateInfo() {
   const { W, R } = calcCoefficients(greenPercent / 100);
   winCoefEl.textContent = W.toFixed(3);
   returnCoefEl.textContent = R.toFixed(3);
-  winAmountEl.textContent = Math.round(bet * W);
-  returnAmountEl.textContent = Math.round(bet * R);
+  winAmountEl.textContent = Math.round(bet * W).toFixed(2);
+  returnAmountEl.textContent = Math.round(bet * R).toFixed(2);
 }
 
 function updateControls() {
@@ -164,6 +181,7 @@ function updateControls() {
   spinBtn.disabled = busy || bet <= 0 || bet > balance;
   betInput.disabled = busy;
   slider.disabled = busy;
+  fastModeEl.disabled = busy;
   balanceEl.textContent = balance.toFixed(2);
 }
 
@@ -202,18 +220,33 @@ function update() {
   }
 }
 
-function drawField() {
-  let offset = FIELD_SIZE;
-  for (const section of sections) {
-    const size = FIELD_SIZE * section.percent / 100;
-    offset -= size;
-    ctx.fillStyle = section.color;
-    ctx.fillRect(0, offset, FIELD_SIZE, size);
+function drawField(layout) {
+  const { sections, dir } = layout;
+  const isVertical = dir === 'tb' || dir === 'bt';
+  const reversed = dir === 'bt' || dir === 'rl';
+  let offset = 0;
+  for (const s of sections) {
+    const size = FIELD_SIZE * s.percent / 100;
+    let rx, ry, rw, rh;
+    if (isVertical) {
+      const yy = reversed ? FIELD_SIZE - offset - size : offset;
+      rx = 0; ry = yy; rw = FIELD_SIZE; rh = size;
+    } else {
+      const xx = reversed ? FIELD_SIZE - offset - size : offset;
+      rx = xx; ry = 0; rw = size; rh = FIELD_SIZE;
+    }
+    ctx.fillStyle = COLORS[s.type];
+    ctx.fillRect(rx, ry, rw, rh);
+    offset += size;
   }
 }
 
 function draw() {
-  drawField();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, FIELD_SIZE, FIELD_SIZE);
+  if (fieldPainted && currentLayout) {
+    drawField(currentLayout);
+  }
   ctx.beginPath();
   ctx.arc(x, y, BALL_RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = '#ffffff';
@@ -224,10 +257,22 @@ function draw() {
 }
 
 function isInGreenZone() {
-  const redSize = (100 - spinGreen) / 2;
-  const greenStart = redSize / 100 * FIELD_SIZE;
-  const greenEnd = (redSize + spinGreen) / 100 * FIELD_SIZE;
-  return y >= greenStart && y <= greenEnd;
+  const { sections, dir } = currentLayout;
+  let coord;
+  if (dir === 'tb') coord = y;
+  else if (dir === 'bt') coord = FIELD_SIZE - y;
+  else if (dir === 'lr') coord = x;
+  else coord = FIELD_SIZE - x;
+
+  let offset = 0;
+  for (const s of sections) {
+    const size = FIELD_SIZE * s.percent / 100;
+    if (coord >= offset && coord < offset + size) {
+      return s.type === 'green';
+    }
+    offset += size;
+  }
+  return false;
 }
 
 function checkResult() {
@@ -240,12 +285,11 @@ function checkResult() {
   } else {
     const payout = currentBet * R;
     balance += payout;
-    resultEl.textContent = `Возврат: ${(payout - currentBet).toFixed(2)} ₽ (×${R.toFixed(3)})`;
+    resultEl.textContent = `Возврат: +${payout.toFixed(2)} ₽ (×${R.toFixed(3)})`;
     resultEl.style.color = '#e00000';
   }
   saveBalance();
   pendingResult = false;
-  updateInfo();
   updateControls();
 }
 
@@ -255,6 +299,8 @@ function spin() {
   if (!bet || bet <= 0 || bet > balance) return;
   currentBet = bet;
   spinGreen = greenPercent;
+  currentLayout = buildLayout(spinGreen);
+  fieldPainted = true;
   balance -= currentBet;
   saveBalance();
   resultEl.textContent = '';
@@ -270,8 +316,14 @@ function resetGame() {
 }
 
 function loop() {
-  update();
-  if (pendingResult && !flying) checkResult();
+  const steps = fastModeEl.checked ? FAST_MULTIPLIER : 1;
+  for (let i = 0; i < steps; i++) {
+    update();
+    if (pendingResult && !flying) {
+      checkResult();
+      break;
+    }
+  }
   draw();
   requestAnimationFrame(loop);
 }
