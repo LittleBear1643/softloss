@@ -28,7 +28,7 @@
   }
   .controls input[type="range"] { flex: 1; min-width: 0; }
   .controls span { min-width: 40px; text-align: right; font-weight: bold; }
-  .controls input[type="number"] { width: 80px; padding: 3px; }
+  .controls input[type="number"] { width: 70px; padding: 3px; }
   .controls button { padding: 3px 8px; }
   .info {
     width: 250px;
@@ -47,11 +47,11 @@
 <canvas id="canvas" width="250" height="250"></canvas>
 
 <div class="controls">
-  <span>Баланс: <span id="balance">10000.00</span> ₽</span>
+  <span>Баланс: <code id="balance"></code> GRAM</span>
 </div>
 
 <div class="controls">
-  <input type="number" id="bet" value="1000" min="1" step="1">
+  <input type="number" id="bet" value="1" min="0.1" step="0.1">
   <button id="spin">Прокрутить</button>
   <button id="reset">Заново</button>
 </div>
@@ -66,9 +66,15 @@
   <span id="chanceValue">30%</span>
 </div>
 
+<div class="controls">
+  <button class="chance-preset" data-chance="30">30%</button>
+  <button class="chance-preset" data-chance="50">50%</button>
+  <button class="chance-preset" data-chance="75">75%</button>
+</div>
+
 <div class="info">
-  <span>Выигрыш: ×<span id="winCoef">0</span> (<span id="winAmount">0</span> ₽)</span>
-  <span>Возврат: ×<span id="returnCoef">0</span> (<span id="returnAmount">0</span> ₽)</span>
+  <span>Выигрыш: <code id="winAmount">0</code> GRAM (×<span id="winCoef">0</span>)</span>
+  <span>Возврат: <code id="returnAmount">0</code> GRAM (×<span id="returnCoef">0</span>)</span>
 </div>
 
 <div id="result"></div>
@@ -88,16 +94,17 @@ const winAmountEl = document.getElementById('winAmount');
 const returnCoefEl = document.getElementById('returnCoef');
 const returnAmountEl = document.getElementById('returnAmount');
 const resultEl = document.getElementById('result');
+const presetBtns = document.querySelectorAll('.chance-preset');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
 const MAX_SPEED = 25;
 const FRICTION = 0.99;
-const MIN_SPEED = 0.025;
+const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
 const FAST_MULTIPLIER = 3;
 const MARGIN = 0.05;
-const INITIAL_BALANCE = 10000;
+const INITIAL_BALANCE = 3;
 const STORAGE_KEY = 'ricochet_balance';
 const COLORS = { red: '#e00000', green: '#00b300' };
 
@@ -171,8 +178,8 @@ function updateInfo() {
   const { W, R } = calcCoefficients(greenPercent / 100);
   winCoefEl.textContent = W.toFixed(3);
   returnCoefEl.textContent = R.toFixed(3);
-  winAmountEl.textContent = Math.round(bet * W).toFixed(2);
-  returnAmountEl.textContent = Math.round(bet * R).toFixed(2);
+  winAmountEl.textContent = (bet * W).toFixed(2);
+  returnAmountEl.textContent = (bet * R).toFixed(2);
 }
 
 function updateControls() {
@@ -182,6 +189,7 @@ function updateControls() {
   betInput.disabled = busy;
   slider.disabled = busy;
   fastModeEl.disabled = busy;
+  presetBtns.forEach(btn => btn.disabled = busy);
   balanceEl.textContent = balance.toFixed(2);
 }
 
@@ -224,20 +232,41 @@ function drawField(layout) {
   const { sections, dir } = layout;
   const isVertical = dir === 'tb' || dir === 'bt';
   const reversed = dir === 'bt' || dir === 'rl';
+  const innerSize = FIELD_SIZE - BALL_RADIUS * 2;
+  const OVERLAP = 1;
   let offset = 0;
   for (const s of sections) {
-    const size = FIELD_SIZE * s.percent / 100;
+    const size = innerSize * s.percent / 100;
     let rx, ry, rw, rh;
     if (isVertical) {
-      const yy = reversed ? FIELD_SIZE - offset - size : offset;
-      rx = 0; ry = yy; rw = FIELD_SIZE; rh = size;
+      const yy = reversed
+        ? FIELD_SIZE - BALL_RADIUS - offset - size
+        : BALL_RADIUS + offset;
+      rx = 0; ry = yy - OVERLAP; rw = FIELD_SIZE; rh = size + OVERLAP * 2;
     } else {
-      const xx = reversed ? FIELD_SIZE - offset - size : offset;
-      rx = xx; ry = 0; rw = size; rh = FIELD_SIZE;
+      const xx = reversed
+        ? FIELD_SIZE - BALL_RADIUS - offset - size
+        : BALL_RADIUS + offset;
+      rx = xx - OVERLAP; ry = 0; rw = size + OVERLAP * 2; rh = FIELD_SIZE;
     }
     ctx.fillStyle = COLORS[s.type];
     ctx.fillRect(rx, ry, rw, rh);
     offset += size;
+  }
+
+  const firstColor = COLORS[reversed ? sections[sections.length - 1].type : sections[0].type];
+  const lastColor = COLORS[reversed ? sections[0].type : sections[sections.length - 1].type];
+
+  if (isVertical) {
+    ctx.fillStyle = firstColor;
+    ctx.fillRect(0, 0, FIELD_SIZE, BALL_RADIUS + OVERLAP);
+    ctx.fillStyle = lastColor;
+    ctx.fillRect(0, FIELD_SIZE - BALL_RADIUS - OVERLAP, FIELD_SIZE, BALL_RADIUS + OVERLAP);
+  } else {
+    ctx.fillStyle = firstColor;
+    ctx.fillRect(0, 0, BALL_RADIUS + OVERLAP, FIELD_SIZE);
+    ctx.fillStyle = lastColor;
+    ctx.fillRect(FIELD_SIZE - BALL_RADIUS - OVERLAP, 0, BALL_RADIUS + OVERLAP, FIELD_SIZE);
   }
 }
 
@@ -258,15 +287,16 @@ function draw() {
 
 function isInGreenZone() {
   const { sections, dir } = currentLayout;
+  const innerSize = FIELD_SIZE - BALL_RADIUS * 2;
   let coord;
-  if (dir === 'tb') coord = y;
-  else if (dir === 'bt') coord = FIELD_SIZE - y;
-  else if (dir === 'lr') coord = x;
-  else coord = FIELD_SIZE - x;
+  if (dir === 'tb') coord = y - BALL_RADIUS;
+  else if (dir === 'bt') coord = FIELD_SIZE - BALL_RADIUS - y;
+  else if (dir === 'lr') coord = x - BALL_RADIUS;
+  else coord = FIELD_SIZE - BALL_RADIUS - x;
 
   let offset = 0;
   for (const s of sections) {
-    const size = FIELD_SIZE * s.percent / 100;
+    const size = innerSize * s.percent / 100;
     if (coord >= offset && coord < offset + size) {
       return s.type === 'green';
     }
@@ -280,12 +310,12 @@ function checkResult() {
   if (isInGreenZone()) {
     const payout = currentBet * W;
     balance += payout;
-    resultEl.textContent = `Выигрыш! +${(payout - currentBet).toFixed(2)} ₽ (×${W.toFixed(3)})`;
+    resultEl.textContent = `Выигрыш! +${(payout - currentBet).toFixed(2)} GRAM (×${W.toFixed(3)})`;
     resultEl.style.color = '#00b300';
   } else {
     const payout = currentBet * R;
     balance += payout;
-    resultEl.textContent = `Возврат: +${payout.toFixed(2)} ₽ (×${R.toFixed(3)})`;
+    resultEl.textContent = `Возврат: +${payout.toFixed(2)} GRAM (×${R.toFixed(3)})`;
     resultEl.style.color = '#e00000';
   }
   saveBalance();
@@ -332,6 +362,14 @@ slider.addEventListener('input', updateSections);
 betInput.addEventListener('input', () => { updateInfo(); updateControls(); });
 spinBtn.addEventListener('click', spin);
 resetBtn.addEventListener('click', resetGame);
+
+presetBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (flying || pendingResult) return;
+    slider.value = btn.dataset.chance;
+    updateSections();
+  });
+});
 
 updateSections();
 spawnBall();
