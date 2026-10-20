@@ -61,7 +61,7 @@
   }
 
   .box-deposit {
-    width: 110px;
+    width: 108px;
     height: 162px;
     border-radius: 6px;
     outline: 1px solid #555;
@@ -70,7 +70,6 @@
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
-    gap: 2px;
     overflow: hidden;
   }
 
@@ -82,7 +81,7 @@
   }
 
   .box-win, .box-return {
-    width: 110px;
+    width: 108px;
     height: 56px;
     padding: 2px;
     border-radius: 6px;
@@ -128,19 +127,28 @@
     flex-shrink: 0;
     font-size: 12px;
     font-weight: bold;
-    outline: 1px solid #555;
     background: #fff;
     overflow: hidden;
   }
   .cube-nft {
     object-fit: cover;
     cursor: pointer;
-    outline: none;
   }
   .cube-gram {
-    color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    background: #30a1f5;
+    color: #fff;
   }
-
+  .cube-gram > img {
+    width: 32px;
+  }
+  .cube-gram > code {
+    position: relative;
+    top: -3px;
+  }
   .btn-add-nft {
     font-size: 12px;
     width: 112px;
@@ -161,7 +169,7 @@
   .inventory-modal {
     background: #fff;
     width: 100%;
-    max-width: 360px;
+    width: 332px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
@@ -171,10 +179,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
+    padding: 10px 8px;
     border-bottom: 1px solid #eee;
-    font-weight: bold;
-    font-size: 14px;
+    font-size: 20px;
   }
   .inventory-close {
     background: none;
@@ -189,8 +196,7 @@
     overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
+    justify-content: flex-start;
   }
   .inventory-empty {
     padding: 24px;
@@ -203,6 +209,7 @@
     border-radius: 8px;
     outline: 1px solid #ccc;
     padding: 4px;
+    margin: 4px;
     cursor: pointer;
     text-align: center;
   }
@@ -213,10 +220,25 @@
     object-fit: cover;
     display: block;
   }
-  .inventory-item .inv-price {
+  .inventory-item button {
     display: block;
+    border-radius: 6px;
+    padding: 4px 0;
+    width: 100%;
+    border: 1px solid #555;
     margin-top: 4px;
     font-size: 12px;
+  }
+  .inventory-item button .inv-price {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    font-weight: 600;
+  }
+  .inventory-item button .inv-price img {
+    width: 14px;
+    margin-left: 3px;
   }
 </style>
 </head>
@@ -233,7 +255,7 @@
 
 <div class="controls bet-row">
   <button id="betMinus">−</button>
-  <input type="number" id="bet" value="1" min="0.5" step="0.01">
+  <input type="number" id="bet" value="1" min="0" step="0.01">
   <button id="betPlus">+</button>
   <button id="betMax">МАКС</button>
 </div>
@@ -270,7 +292,6 @@
     <div class="outcome-or">либо</div>
     
     <div class="box-return" id="returnContainer">
-      <div class="cube cube-gram" id="returnAmount">0.00</div>
     </div>
   </div>
 </div>
@@ -297,7 +318,6 @@ const spinBtn = document.getElementById('spin');
 const resetBtn = document.getElementById('reset');
 const fastModeEl = document.getElementById('fastMode');
 const balanceEl = document.getElementById('balance');
-const returnAmountEl = document.getElementById('returnAmount');
 const resultEl = document.getElementById('result');
 const presetBtns = document.querySelectorAll('.chance-preset');
 const betMinusBtn = document.getElementById('betMinus');
@@ -306,6 +326,7 @@ const betMaxBtn = document.getElementById('betMax');
 const addNftBtn = document.getElementById('addNftBtn');
 const depositContainer = document.getElementById('depositContainer');
 const winContainer = document.getElementById('winContainer');
+const returnContainer = document.getElementById('returnContainer');
 const inventoryOverlay = document.getElementById('inventoryOverlay');
 const inventoryClose = document.getElementById('inventoryClose');
 const inventoryList = document.getElementById('inventoryList');
@@ -318,7 +339,7 @@ const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
 const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
-const INITIAL_BALANCE = 5;
+const INITIAL_BALANCE = 50;
 const STORAGE_KEY = 'ricochet_balance';
 const INVENTORY_KEY = 'ricochet_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
@@ -457,16 +478,20 @@ function getDepositTotal() {
   return bet + nftTotal;
 }
 
-function generateReward(p, totalDeposit) {
-  const { W } = calcCoefficients(p);
-  const winAmount = totalDeposit * W;
-
-  const eligibleNfts = ALL_NFTS.filter(n => {
-    if (n.price > winAmount) return false;
+function getAvailableNfts(limitAmount) {
+  return ALL_NFTS.filter(n => {
+    if (n.price > limitAmount) return false;
     const inInv = inventory.some(inv => inv.id === n.id);
     const inDeposit = depositNfts.some(dep => dep.id === n.id);
     return !inInv && !inDeposit;
   });
+}
+
+function generateReward(p, totalDeposit) {
+  const { W } = calcCoefficients(p);
+  const winAmount = totalDeposit * W;
+
+  const eligibleNfts = getAvailableNfts(winAmount);
   
   if (eligibleNfts.length > 0) {
     const nft = eligibleNfts[eligibleNfts.length - 1];
@@ -482,6 +507,14 @@ function generateReward(p, totalDeposit) {
     nft: null,
     gram: winAmount
   };
+}
+
+function createGramCube(amount) {
+  if (amount <= 0) return null;
+  const gramCube = document.createElement('div');
+  gramCube.className = 'cube cube-gram';
+  gramCube.innerHTML = `<img src="gram.png"><code>${amount.toFixed(2)}</code>`;
+  return gramCube;
 }
 
 function updateInfo() {
@@ -501,23 +534,34 @@ function updateInfo() {
       img.title = `${reward.nft.name} #${reward.nft.id}`;
       img.style.margin = '2px';
       winContainer.appendChild(img);
-
-      const gramCube = document.createElement('div');
-      gramCube.className = 'cube cube-gram';
-      gramCube.textContent = reward.gram.toFixed(2);
-      winContainer.appendChild(gramCube);
-    } else {
-      const gramCube = document.createElement('div');
-      gramCube.className = 'cube cube-gram';
-      gramCube.textContent = reward.gram.toFixed(2);
-      winContainer.appendChild(gramCube);
     }
+    const winGram = createGramCube(reward.gram);
+    if (winGram) winContainer.appendChild(winGram);
 
     const { R } = calcCoefficients(greenPercent / 100);
-    returnAmountEl.textContent = (total * R).toFixed(2);
+    const returnAmountVal = total * R;
+
+    returnContainer.innerHTML = '';
+    const eligibleReturn = getAvailableNfts(returnAmountVal);
+
+    if (eligibleReturn.length > 0) {
+      const rnft = eligibleReturn[eligibleReturn.length - 1];
+      const img = document.createElement('img');
+      img.src = nftUrl(rnft);
+      img.className = 'cube cube-nft';
+      img.title = `${rnft.name} #${rnft.id}`;
+      img.style.margin = '2px';
+      returnContainer.appendChild(img);
+      
+      const retGram = createGramCube(returnAmountVal - rnft.price);
+      if (retGram) returnContainer.appendChild(retGram);
+    } else {
+      const retGram = createGramCube(returnAmountVal);
+      if (retGram) returnContainer.appendChild(retGram);
+    }
   } else {
-    winContainer.innerHTML = '<div class="cube cube-gram">0.00</div>';
-    returnAmountEl.textContent = '0.00';
+    winContainer.innerHTML = '';
+    returnContainer.innerHTML = '';
   }
   
   renderDepositNfts();
@@ -530,7 +574,7 @@ function renderDepositNfts() {
     const img = document.createElement('img');
     img.src = nftUrl(nft);
     img.className = 'cube cube-nft';
-    img.title = `${nft.name} #${nft.id} — ${nft.price} GRAM (Нажмите чтобы вернуть)`;
+    img.title = `${nft.name} #${nft.id} — ${nft.price} GRAM`;
     img.addEventListener('click', () => {
       if (flying || pendingResult) return;
       inventory.push({ ...nft });
@@ -543,17 +587,18 @@ function renderDepositNfts() {
   });
 
   const bet = Number(betInput.value) || 0;
-  const gramCube = document.createElement('div');
-  gramCube.className = 'cube cube-gram';
-  gramCube.textContent = bet.toFixed(2);
-  depositContainer.appendChild(gramCube);
+  const gramCube = createGramCube(bet);
+  if (gramCube) depositContainer.appendChild(gramCube);
 }
 
 function updateControls() {
   const busy = flying || pendingResult;
   const bet = Number(betInput.value) || 0;
   const total = getDepositTotal();
-  spinBtn.disabled = busy || total <= 0 || bet > balance;
+  
+  const minBet = depositNfts.length > 0 ? 0 : 0.5;
+  spinBtn.disabled = busy || total <= 0 || bet > balance || bet < minBet;
+  
   betInput.disabled = busy;
   slider.disabled = busy;
   fastModeEl.disabled = busy;
@@ -700,9 +745,20 @@ function checkResult() {
     }
     resultEl.style.color = '#00b300';
   } else {
-    const payout = totalDeposit * R;
-    balance += payout;
-    resultEl.textContent = `Возврат: +${payout.toFixed(2)} GRAM`;
+    const returnAmountVal = totalDeposit * R;
+    const eligibleReturn = getAvailableNfts(returnAmountVal);
+    
+    if (eligibleReturn.length > 0) {
+      const rnft = eligibleReturn[eligibleReturn.length - 1];
+      inventory.push({ ...rnft });
+      saveInventory();
+      const gramBack = returnAmountVal - rnft.price;
+      balance += gramBack;
+      resultEl.textContent = `Возврат! ${rnft.name} + ${gramBack.toFixed(2)} GRAM`;
+    } else {
+      balance += returnAmountVal;
+      resultEl.textContent = `Возврат: +${returnAmountVal.toFixed(2)} GRAM`;
+    }
     resultEl.style.color = '#e00000';
   }
   depositNfts = [];
@@ -722,7 +778,9 @@ function spin() {
   if (flying || pendingResult) return;
   const bet = Number(betInput.value);
   const total = getDepositTotal();
-  if (!bet || bet <= 0 || bet > balance) return;
+  const minBet = depositNfts.length > 0 ? 0 : 0.5;
+  if (!bet && bet !== 0 || bet > balance || bet < minBet) return;
+  if (total <= 0) return;
   currentBet = bet;
   spinGreen = greenPercent;
   currentLayout = buildLayout(spinGreen);
@@ -746,7 +804,8 @@ function stepBet(delta) {
   if (flying || pendingResult) return;
   let v = Number(betInput.value) || 0;
   v = Math.round((v + delta) * 10) / 10;
-  if (v < BET_STEP) v = BET_STEP;
+  const minBet = depositNfts.length > 0 ? 0 : BET_STEP;
+  if (v < minBet) v = minBet;
   betInput.value = v.toFixed(1);
   updateInfo();
   updateControls();
@@ -785,7 +844,7 @@ function renderInventory() {
     item.className = 'inventory-item';
     item.innerHTML = `
       <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
-      <code class="inv-price">${nft.price} GRAM</code>
+      <button>Продать за <code class="inv-price">${nft.price} <img src="gram.png"></code></button>
     `;
     item.addEventListener('click', () => {
       if (depositNfts.length >= 5) return;
