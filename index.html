@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>softloss</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
   html, body { touch-action: manipulation; }
+  button { cursor: pointer; }
   body {
     min-height: 100vh;
     display: flex;
@@ -35,7 +36,7 @@
   .controls button { padding: 3px 8px; }
   .bet-row { gap: 4px; }
   .bet-row input[type="number"] { flex: 1; min-width: 0; width: auto; }
-  .spin-row { width: 250px; }
+  .spin-row { width: 250px; margin-bottom: 16px; }
   .spin-row button { width: 100%; padding: 8px 0; font-size: 14px; }
   #result {
     width: 250px;
@@ -43,78 +44,188 @@
     text-align: center;
     font-weight: bold;
   }
+
   .outcome-row {
     width: 250px;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 2px 0;
+    align-items: flex-start;
+    gap: 8px;
   }
-  .outcome-box {
+
+  .left-col {
+    width: 110px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .box-deposit {
+    width: 110px;
+    height: 162px;
+    border-radius: 6px;
     outline: 1px solid #555;
-    border-radius: 4px;
     padding: 2px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 14px;
     background: #fff;
-    border-radius: 2px;
-    width: 108px;
-    height: 160px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 2px;
+    overflow: hidden;
   }
-  .box-win {
-    outline: 1px solid #00b300;
+
+  .outcome-right {
+    width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .box-return {
-    outline: 1px solid #e00000;
+
+  .box-win, .box-return {
+    width: 110px;
+    height: 56px;
+    padding: 2px;
+    border-radius: 6px;
+    background: #fff;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
   }
-  .outcome-box .box-val {
-    display: block;
-    width: 100%;
-    font-size: 14px;
-  }
-  .outcome-box .box-coef {
-    display: block;
-    width: 100%;
-    font-size: 10px;
-    font-weight: normal;
-    color: #555;
+  .box-win { outline: 1px solid #00b300; }
+  .box-return { outline: 1px solid #e00000; }
+
+  .outcome-or {
+    width: 110px;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #000;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
   .outcome-arrow {
-    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 162px;
+    font-size: 14px;
     font-weight: bold;
     line-height: 1;
     user-select: none;
-    flex-shrink: 0;
   }
-  .outcome-right {
-    width: 108px;
+
+  .cube {
+    width: 48px;
+    height: 48px;
+    margin: 2px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: bold;
+    outline: 1px solid #555;
+    background: #fff;
+    overflow: hidden;
+  }
+  .cube-nft {
+    object-fit: cover;
+    cursor: pointer;
+    outline: none;
+  }
+  .cube-gram {
+    color: #000;
+  }
+
+  .btn-add-nft {
+    font-size: 12px;
+    width: 112px;
+    padding: 2px 0;
+  }
+
+  .inventory-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+  }
+  .inventory-overlay.open { display: flex; }
+  .inventory-modal {
+    background: #fff;
+    width: 100%;
+    max-width: 360px;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    overflow: hidden;
   }
-  .outcome-right .outcome-box {
-    height: 60px;
-  }
-  .outcome-or {
-    height: 40px;
+  .inventory-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    font-size: 14px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
     font-weight: bold;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 14px;
+  }
+  .inventory-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+  .inventory-list {
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .inventory-empty {
+    padding: 24px;
+    text-align: center;
+    color: #777;
+    width: 100%;
+  }
+  .inventory-item {
+    width: 96px;
+    border-radius: 8px;
+    outline: 1px solid #ccc;
+    padding: 4px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .inventory-item img {
+    width: 100%;
+    border-radius: 6px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+  .inventory-item .inv-price {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
   }
 </style>
 </head>
 <body>
 <canvas id="canvas" width="250" height="250"></canvas>
+
+<div class="spin-row">
+  <button id="spin"><b>Вперёд!</b></button>
+</div>
 
 <div class="controls">
   <span>Баланс: <code id="balance"></code> GRAM</span>
@@ -145,28 +256,35 @@
 </div>
 
 <div class="outcome-row">
-  <div class="outcome-box box-deposit">
-    <code class="box-val" id="depositAmount">0</code>
-    <span class="box-coef">Депозит</span>
-  </div>
-  <div class="outcome-arrow">→</div>
-  <div class="outcome-right">
-    <div class="outcome-box box-win">
-      <code class="box-val" id="winAmount">0</code>
-      <span class="box-coef">×<span id="winCoef">0</span></span>
+  <div class="left-col">
+    <div class="box-deposit" id="depositContainer">
     </div>
+    <button id="addNftBtn" class="btn-add-nft">Добавить NFT</button>
+  </div>
+
+  <div class="outcome-arrow">→</div>
+
+  <div class="outcome-right">
+    <div class="box-win" id="winContainer"></div>
+    
     <div class="outcome-or">либо</div>
-    <div class="outcome-box box-return">
-      <code class="box-val" id="returnAmount">0</code>
-      <span class="box-coef">×<span id="returnCoef">0</span></span>
+    
+    <div class="box-return" id="returnContainer">
+      <div class="cube cube-gram" id="returnAmount">0.00</div>
     </div>
   </div>
 </div>
 
 <div id="result"></div>
 
-<div class="spin-row">
-  <button id="spin"><b>Вперёд!</b></button>
+<div class="inventory-overlay" id="inventoryOverlay">
+  <div class="inventory-modal">
+    <div class="inventory-header">
+      <span>Инвентарь</span>
+      <button class="inventory-close" id="inventoryClose">×</button>
+    </div>
+    <div class="inventory-list" id="inventoryList"></div>
+  </div>
 </div>
 
 <script>
@@ -179,16 +297,18 @@ const spinBtn = document.getElementById('spin');
 const resetBtn = document.getElementById('reset');
 const fastModeEl = document.getElementById('fastMode');
 const balanceEl = document.getElementById('balance');
-const depositAmountEl = document.getElementById('depositAmount');
-const winCoefEl = document.getElementById('winCoef');
-const winAmountEl = document.getElementById('winAmount');
-const returnCoefEl = document.getElementById('returnCoef');
 const returnAmountEl = document.getElementById('returnAmount');
 const resultEl = document.getElementById('result');
 const presetBtns = document.querySelectorAll('.chance-preset');
 const betMinusBtn = document.getElementById('betMinus');
 const betPlusBtn = document.getElementById('betPlus');
 const betMaxBtn = document.getElementById('betMax');
+const addNftBtn = document.getElementById('addNftBtn');
+const depositContainer = document.getElementById('depositContainer');
+const winContainer = document.getElementById('winContainer');
+const inventoryOverlay = document.getElementById('inventoryOverlay');
+const inventoryClose = document.getElementById('inventoryClose');
+const inventoryList = document.getElementById('inventoryList');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -200,8 +320,29 @@ const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
 const INITIAL_BALANCE = 3;
 const STORAGE_KEY = 'ricochet_balance';
+const INVENTORY_KEY = 'ricochet_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
+
+const ALL_NFTS = [
+  { name: 'Lunar Snake', id: 154204, price: 3.5 },
+  { name: 'Mood Pack', id: 96038, price: 4.5 },
+  { name: 'Easter Egg', id: 82565, price: 5.5 },
+  { name: 'Vice Cream', id: 39436, price: 7 },
+  { name: 'Lush Bouquet', id: 103223, price: 8.5 },
+  { name: 'Surge Board', id: 11063, price: 10 },
+  { name: 'Fine Pen', id: 19779, price: 13 },
+  { name: 'Ionic Dryer', id: 18304, price: 16 },
+  { name: 'Sky Stilettos', id: 40680, price: 19 },
+  { name: "Khabib's Papakha", id: 25795, price: 24 },
+  { name: 'Electric Skull', id: 2358, price: 29 },
+  { name: 'Eternal Rose', id: 8768, price: 34 },
+  { name: 'Mirage Lamp', id: 63660, price: 44 },
+  { name: 'Neko Helmet', id: 1075, price: 55 },
+  { name: 'Swiss Watch', id: 21384, price: 68 },
+  { name: 'Ion Gem', id: 3352, price: 83 },
+  { name: 'Perfume Bottle', id: 733, price: 100 }
+];
 
 let currentLayout = null;
 let fieldPainted = false;
@@ -209,6 +350,8 @@ let greenPercent = 30;
 let spinGreen = 30;
 let currentBet = 0;
 let pendingResult = false;
+let depositNfts = [];
+let currentReward = null;
 
 let balance = (() => {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -216,11 +359,31 @@ let balance = (() => {
   return Number.isFinite(parsed) ? parsed : INITIAL_BALANCE;
 })();
 
+let inventory = (() => {
+  const stored = localStorage.getItem(INVENTORY_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+})();
+
 let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
 let flying = false, accelerating = false;
 
 function saveBalance() {
   localStorage.setItem(STORAGE_KEY, String(balance));
+}
+
+function saveInventory() {
+  localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory));
+}
+
+function nftUrl(nft) {
+  const cleanName = nft.name.toLowerCase().replace(/[^a-z]/g, '');
+  return `https://nft.fragment.com/gift/${cleanName}-${nft.id}.small.jpg`;
 }
 
 function calcCoefficients(p) {
@@ -232,10 +395,8 @@ function calcCoefficients(p) {
 function buildLayout(greenPct) {
   const dirs = ['tb', 'bt', 'lr', 'rl'];
   const dir = dirs[Math.floor(Math.random() * 4)];
-
   const canRGR = (100 - greenPct) >= 20;
   const canGRG = greenPct >= 20;
-
   let pattern;
   if (canRGR && canGRG) pattern = Math.random() < 0.5 ? 'RGR' : 'GRG';
   else if (canGRG) pattern = 'GRG';
@@ -258,7 +419,6 @@ function buildLayout(greenPct) {
       { percent: greenPct - g1, type: 'green' }
     ];
   }
-
   return { dir, sections };
 }
 
@@ -268,20 +428,104 @@ function updateSections() {
   updateInfo();
 }
 
+function getDepositTotal() {
+  const bet = Number(betInput.value) || 0;
+  const nftTotal = depositNfts.reduce((s, n) => s + n.price, 0);
+  return bet + nftTotal;
+}
+
+function generateReward(p, totalDeposit) {
+  const { W } = calcCoefficients(p);
+  const winAmount = totalDeposit * W;
+
+  const eligibleNfts = ALL_NFTS.filter(n => n.price <= winAmount);
+  
+  if (eligibleNfts.length > 0) {
+    const nft = eligibleNfts[eligibleNfts.length - 1];
+    return {
+      isWin: true,
+      nft: { ...nft },
+      gram: winAmount - nft.price
+    };
+  }
+  
+  return {
+    isWin: true,
+    nft: null,
+    gram: winAmount
+  };
+}
+
 function updateInfo() {
   const bet = Number(betInput.value) || 0;
-  const { W, R } = calcCoefficients(greenPercent / 100);
-  depositAmountEl.textContent = bet.toFixed(2);
-  winCoefEl.textContent = W.toFixed(3);
-  returnCoefEl.textContent = R.toFixed(3);
-  winAmountEl.textContent = (bet * W).toFixed(2);
-  returnAmountEl.textContent = (bet * R).toFixed(2);
+  const nftTotal = depositNfts.reduce((s, n) => s + n.price, 0);
+  const total = bet + nftTotal;
+  
+  if (total > 0) {
+    const reward = generateReward(greenPercent / 100, total);
+    currentReward = reward;
+
+    winContainer.innerHTML = '';
+    if (reward.nft) {
+      const img = document.createElement('img');
+      img.src = nftUrl(reward.nft);
+      img.className = 'cube cube-nft';
+      img.title = `${reward.nft.name} #${reward.nft.id}`;
+      img.style.margin = '2px';
+      winContainer.appendChild(img);
+
+      const gramCube = document.createElement('div');
+      gramCube.className = 'cube cube-gram';
+      gramCube.textContent = reward.gram.toFixed(2);
+      winContainer.appendChild(gramCube);
+    } else {
+      const gramCube = document.createElement('div');
+      gramCube.className = 'cube cube-gram';
+      gramCube.textContent = reward.gram.toFixed(2);
+      winContainer.appendChild(gramCube);
+    }
+
+    const { R } = calcCoefficients(greenPercent / 100);
+    returnAmountEl.textContent = (total * R).toFixed(2);
+  } else {
+    winContainer.innerHTML = '<div class="cube cube-gram">0.00</div>';
+    returnAmountEl.textContent = '0.00';
+  }
+  
+  renderDepositNfts();
+}
+
+function renderDepositNfts() {
+  depositContainer.innerHTML = '';
+
+  depositNfts.forEach((nft, idx) => {
+    const img = document.createElement('img');
+    img.src = nftUrl(nft);
+    img.className = 'cube cube-nft';
+    img.title = `${nft.name} #${nft.id} — ${nft.price} GRAM (Нажмите чтобы вернуть)`;
+    img.addEventListener('click', () => {
+      if (flying || pendingResult) return;
+      inventory.push({ ...nft });
+      depositNfts.splice(idx, 1);
+      saveInventory();
+      updateInfo();
+      updateControls();
+    });
+    depositContainer.appendChild(img);
+  });
+
+  const bet = Number(betInput.value) || 0;
+  const gramCube = document.createElement('div');
+  gramCube.className = 'cube cube-gram';
+  gramCube.textContent = bet.toFixed(2);
+  depositContainer.appendChild(gramCube);
 }
 
 function updateControls() {
   const busy = flying || pendingResult;
   const bet = Number(betInput.value) || 0;
-  spinBtn.disabled = busy || bet <= 0 || bet > balance;
+  const total = getDepositTotal();
+  spinBtn.disabled = busy || total <= 0 || bet > balance;
   betInput.disabled = busy;
   slider.disabled = busy;
   fastModeEl.disabled = busy;
@@ -289,6 +533,7 @@ function updateControls() {
   betMinusBtn.disabled = busy;
   betPlusBtn.disabled = busy;
   betMaxBtn.disabled = busy || balance <= 0;
+  addNftBtn.disabled = busy;
   balanceEl.textContent = balance.toFixed(2);
 }
 
@@ -406,25 +651,44 @@ function isInGreenZone() {
 
 function checkResult() {
   const { W, R } = calcCoefficients(spinGreen / 100);
-  if (isInGreenZone()) {
-    const payout = currentBet * W;
-    balance += payout;
-    resultEl.textContent = `Выигрыш! +${(payout - currentBet).toFixed(2)} GRAM (×${W.toFixed(3)})`;
+  const nftTotal = depositNfts.reduce((s, n) => s + n.price, 0);
+  const totalDeposit = currentBet + nftTotal;
+  const isWin = isInGreenZone();
+
+  if (isWin) {
+    const reward = currentReward;
+    if (!reward) return;
+
+    if (reward.nft) {
+      inventory.push(reward.nft);
+      saveInventory();
+    }
+    balance += reward.gram + (reward.nft ? reward.nft.price : 0);
+    
+    if (reward.nft) {
+      resultEl.textContent = `Выигрыш! ${reward.nft.name} + ${reward.gram.toFixed(2)} GRAM`;
+    } else {
+      resultEl.textContent = `Выигрыш! +${reward.gram.toFixed(2)} GRAM`;
+    }
     resultEl.style.color = '#00b300';
   } else {
-    const payout = currentBet * R;
+    const payout = totalDeposit * R;
     balance += payout;
-    resultEl.textContent = `Возврат: +${payout.toFixed(2)} GRAM (×${R.toFixed(3)})`;
+    resultEl.textContent = `Возврат: +${payout.toFixed(2)} GRAM`;
     resultEl.style.color = '#e00000';
   }
+  depositNfts = [];
+
   saveBalance();
   pendingResult = false;
+  updateInfo();
   updateControls();
 }
 
 function spin() {
   if (flying || pendingResult) return;
   const bet = Number(betInput.value);
+  const total = getDepositTotal();
   if (!bet || bet <= 0 || bet > balance) return;
   currentBet = bet;
   spinGreen = greenPercent;
@@ -441,6 +705,7 @@ function spin() {
 
 function resetGame() {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(INVENTORY_KEY);
   location.reload();
 }
 
@@ -463,6 +728,45 @@ function setMaxBet() {
   updateControls();
 }
 
+function openInventory() {
+  if (flying || pendingResult) return;
+  renderInventory();
+  inventoryOverlay.classList.add('open');
+}
+
+function closeInventory() {
+  inventoryOverlay.classList.remove('open');
+}
+
+function renderInventory() {
+  inventoryList.innerHTML = '';
+  if (!inventory.length) {
+    const empty = document.createElement('div');
+    empty.className = 'inventory-empty';
+    empty.textContent = 'Нет NFT в инвентаре';
+    inventoryList.appendChild(empty);
+    return;
+  }
+  inventory.forEach((nft, idx) => {
+    const item = document.createElement('div');
+    item.className = 'inventory-item';
+    item.innerHTML = `
+      <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
+      <code class="inv-price">${nft.price} GRAM</code>
+    `;
+    item.addEventListener('click', () => {
+      depositNfts.push({ ...nft });
+      inventory.splice(idx, 1);
+      saveInventory();
+      updateInfo();
+      updateControls();
+      renderInventory();
+      if (!inventory.length) closeInventory();
+    });
+    inventoryList.appendChild(item);
+  });
+}
+
 function loop() {
   const steps = fastModeEl.checked ? FAST_MULTIPLIER : 1;
   for (let i = 0; i < steps; i++) {
@@ -483,6 +787,11 @@ resetBtn.addEventListener('click', resetGame);
 betMinusBtn.addEventListener('click', () => stepBet(-BET_STEP));
 betPlusBtn.addEventListener('click', () => stepBet(BET_STEP));
 betMaxBtn.addEventListener('click', setMaxBet);
+addNftBtn.addEventListener('click', openInventory);
+inventoryClose.addEventListener('click', closeInventory);
+inventoryOverlay.addEventListener('click', (e) => {
+  if (e.target === inventoryOverlay) closeInventory();
+});
 
 presetBtns.forEach(btn => {
   btn.addEventListener('click', () => {
