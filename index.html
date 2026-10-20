@@ -337,7 +337,7 @@ const ALL_NFTS = [
   { name: "Khabib's Papakha", id: 25795, price: 24 },
   { name: 'Electric Skull', id: 2358, price: 29 },
   { name: 'Eternal Rose', id: 8768, price: 34 },
-  { name: 'Mirage Lamp', id: 63660, price: 44 },
+  { name: 'Mirage Lamp', id: 87657, price: 44 },
   { name: 'Neko Helmet', id: 1075, price: 55 },
   { name: 'Swiss Watch', id: 21384, price: 68 },
   { name: 'Ion Gem', id: 3352, price: 83 },
@@ -438,7 +438,12 @@ function generateReward(p, totalDeposit) {
   const { W } = calcCoefficients(p);
   const winAmount = totalDeposit * W;
 
-  const eligibleNfts = ALL_NFTS.filter(n => n.price <= winAmount);
+  const eligibleNfts = ALL_NFTS.filter(n => {
+    if (n.price > winAmount) return false;
+    const inInv = inventory.some(inv => inv.id === n.id);
+    const inDeposit = depositNfts.some(dep => dep.id === n.id);
+    return !inInv && !inDeposit;
+  });
   
   if (eligibleNfts.length > 0) {
     const nft = eligibleNfts[eligibleNfts.length - 1];
@@ -663,7 +668,7 @@ function checkResult() {
       inventory.push(reward.nft);
       saveInventory();
     }
-    balance += reward.gram + (reward.nft ? reward.nft.price : 0);
+    balance += reward.gram;
     
     if (reward.nft) {
       resultEl.textContent = `Выигрыш! ${reward.nft.name} + ${reward.gram.toFixed(2)} GRAM`;
@@ -755,6 +760,7 @@ function renderInventory() {
       <code class="inv-price">${nft.price} GRAM</code>
     `;
     item.addEventListener('click', () => {
+      if (depositNfts.length >= 5) return;
       depositNfts.push({ ...nft });
       inventory.splice(idx, 1);
       saveInventory();
