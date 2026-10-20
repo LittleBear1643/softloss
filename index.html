@@ -318,30 +318,53 @@ const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
 const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
-const INITIAL_BALANCE = 3;
+const INITIAL_BALANCE = 5;
 const STORAGE_KEY = 'ricochet_balance';
 const INVENTORY_KEY = 'ricochet_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
 
 const ALL_NFTS = [
-  { name: 'Lunar Snake', id: 154204, price: 3.5 },
-  { name: 'Mood Pack', id: 96038, price: 4.5 },
-  { name: 'Easter Egg', id: 82565, price: 5.5 },
-  { name: 'Vice Cream', id: 39436, price: 7 },
-  { name: 'Lush Bouquet', id: 103223, price: 8.5 },
-  { name: 'Surge Board', id: 11063, price: 10 },
-  { name: 'Fine Pen', id: 19779, price: 13 },
-  { name: 'Ionic Dryer', id: 18304, price: 16 },
-  { name: 'Sky Stilettos', id: 40680, price: 19 },
-  { name: "Khabib's Papakha", id: 25795, price: 24 },
-  { name: 'Electric Skull', id: 2358, price: 29 },
-  { name: 'Eternal Rose', id: 8768, price: 34 },
-  { name: 'Mirage Lamp', id: 87657, price: 44 },
-  { name: 'Neko Helmet', id: 1075, price: 55 },
-  { name: 'Swiss Watch', id: 21384, price: 68 },
-  { name: 'Ion Gem', id: 3352, price: 83 },
-  { name: 'Perfume Bottle', id: 733, price: 100 }
+  { name: 'Lunar Snake', id: 154204, price: 3.57 },
+  { name: 'Mood Pack', id: 96038, price: 4.83 },
+  { name: 'Easter Egg', id: 82565, price: 5.14 },
+  { name: 'Vice Cream', id: 39436, price: 7.62 },
+  { name: 'Lush Bouquet', id: 103223, price: 8.29 },
+  { name: 'Surge Board', id: 11063, price: 10.91 },
+  { name: 'Pretty Posy', id: 15210, price: 11.36 },
+  { name: 'Timeless Book', id: 53496, price: 13.74 },
+  { name: 'Fine Pen', id: 19779, price: 14.08 },
+  { name: 'Mad Pumpkin', id: 393, price: 16.45 },
+  { name: 'Ionic Dryer', id: 18304, price: 17.27 },
+  { name: 'Sky Stilettos', id: 40680, price: 19.63 },
+  { name: 'Cupid Charm', id: 7774, price: 21.88 },
+  { name: 'Snoop Cigar', id: 67501, price: 23.19 },
+  { name: "Khabib's Papakha", id: 25795, price: 25.52 },
+  { name: 'Bling Binky', id: 5255, price: 27.06 },
+  { name: 'Electric Skull', id: 2358, price: 29.41 },
+  { name: 'Eternal Rose', id: 8768, price: 31.77 },
+  { name: 'Signet Ring', id: 8224, price: 35.33 },
+  { name: 'Eternal Rose', id: 8768, price: 41.95 },
+  { name: 'Toy Bear', id: 17136, price: 45.24 },
+  { name: 'Candy Cane', id: 210154, price: 52.68 },
+  { name: 'Neko Helmet', id: 1075, price: 64.12 },
+  { name: 'Bonded Ring', id: 5842, price: 77.49 },
+  { name: 'Swiss Watch', id: 21384, price: 85.86 },
+  { name: 'Sharp Tongue', id: 4405, price: 93.03 },
+  { name: 'Ion Gem', id: 3352, price: 102.71 },
+  { name: 'Perfume Bottle', id: 733, price: 111.58 },
+  { name: 'Fresh Socks', id: 36863, price: 139.92 },
+  { name: 'Artisan Brick', id: 6086, price: 146.17 },
+  { name: 'Loot Bag', id: 2216, price: 160.64 },
+  { name: 'Nail Bracelet', id: 1610, price: 190.38 },
+  { name: 'Astral Shard', id: 1510, price: 228.85 },
+  { name: 'Mighty Arm', id: 1222, price: 253.26 },
+  { name: 'Scared Cat', id: 11352, price: 312.73 },
+  { name: 'Heroic Helmet', id: 1211, price: 351.09 },
+  { name: 'Precious Peach', id: 1757, price: 404.54 },
+  { name: "Durov's Cap", id: 975, price: 532.31 },
+  { name: "Durov's Glasses", id: 1525, price: 758.96 },
+  { name: 'Heart Locket', id: 1647, price: 1065.42 }
 ];
 
 let currentLayout = null;
@@ -688,6 +711,11 @@ function checkResult() {
   pendingResult = false;
   updateInfo();
   updateControls();
+
+  const currentBetVal = Number(betInput.value) || 0;
+  if (currentBetVal > balance) {
+    setMaxBet();
+  }
 }
 
 function spin() {
