@@ -2,10 +2,11 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>softloss</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { touch-action: manipulation; }
   body {
     min-height: 100vh;
     display: flex;
@@ -18,11 +19,13 @@
     font-family: sans-serif;
     font-size: 12px;
     padding: 10px;
+    -webkit-text-size-adjust: 100%;
   }
-  canvas { border: 3px solid #000000; display: block; }
+  canvas { border: 3px solid #000000; display: block; max-width: 100%; }
   .controls {
     width: 250px;
     display: flex;
+    justify-content: center;
     align-items: center;
     gap: 8px;
   }
@@ -30,16 +33,83 @@
   .controls span { min-width: 40px; text-align: right; font-weight: bold; }
   .controls input[type="number"] { width: 70px; padding: 3px; }
   .controls button { padding: 3px 8px; }
-  .info {
-    width: 250px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+  .bet-row { gap: 4px; }
+  .bet-row input[type="number"] { flex: 1; min-width: 0; width: auto; }
+  .spin-row { width: 250px; }
+  .spin-row button { width: 100%; padding: 8px 0; font-size: 14px; }
   #result {
     width: 250px;
     min-height: 1.5em;
+    text-align: center;
     font-weight: bold;
+  }
+  .outcome-row {
+    width: 250px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+  }
+  .outcome-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-wrap: wrap;
+    outline: 1px solid #555;
+    border-radius: 4px;
+    padding: 2px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    background: #fff;
+    border-radius: 2px;
+    width: 108px;
+    height: 160px;
+  }
+  .box-win {
+    outline: 1px solid #00b300;
+  }
+  .box-return {
+    outline: 1px solid #e00000;
+  }
+  .outcome-box .box-val {
+    display: block;
+    width: 100%;
+    font-size: 14px;
+  }
+  .outcome-box .box-coef {
+    display: block;
+    width: 100%;
+    font-size: 10px;
+    font-weight: normal;
+    color: #555;
+  }
+  .outcome-arrow {
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .outcome-right {
+    width: 108px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .outcome-right .outcome-box {
+    height: 60px;
+  }
+  .outcome-or {
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 </style>
 </head>
@@ -50,14 +120,16 @@
   <span>Баланс: <code id="balance"></code> GRAM</span>
 </div>
 
-<div class="controls">
-  <input type="number" id="bet" value="1" min="0.1" step="0.1">
-  <button id="spin">Прокрутить</button>
-  <button id="reset">Заново</button>
+<div class="controls bet-row">
+  <button id="betMinus">−</button>
+  <input type="number" id="bet" value="1" min="0.5" step="0.01">
+  <button id="betPlus">+</button>
+  <button id="betMax">МАКС</button>
 </div>
 
 <div class="controls">
   <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
+  <button id="reset">Заново</button>
 </div>
 
 <div class="controls">
@@ -72,12 +144,30 @@
   <button class="chance-preset" data-chance="75">75%</button>
 </div>
 
-<div class="info">
-  <span>Выигрыш: <code id="winAmount">0</code> GRAM (×<span id="winCoef">0</span>)</span>
-  <span>Возврат: <code id="returnAmount">0</code> GRAM (×<span id="returnCoef">0</span>)</span>
+<div class="outcome-row">
+  <div class="outcome-box box-deposit">
+    <code class="box-val" id="depositAmount">0</code>
+    <span class="box-coef">Депозит</span>
+  </div>
+  <div class="outcome-arrow">→</div>
+  <div class="outcome-right">
+    <div class="outcome-box box-win">
+      <code class="box-val" id="winAmount">0</code>
+      <span class="box-coef">×<span id="winCoef">0</span></span>
+    </div>
+    <div class="outcome-or">либо</div>
+    <div class="outcome-box box-return">
+      <code class="box-val" id="returnAmount">0</code>
+      <span class="box-coef">×<span id="returnCoef">0</span></span>
+    </div>
+  </div>
 </div>
 
 <div id="result"></div>
+
+<div class="spin-row">
+  <button id="spin"><b>Вперёд!</b></button>
+</div>
 
 <script>
 const canvas = document.getElementById('canvas');
@@ -89,12 +179,16 @@ const spinBtn = document.getElementById('spin');
 const resetBtn = document.getElementById('reset');
 const fastModeEl = document.getElementById('fastMode');
 const balanceEl = document.getElementById('balance');
+const depositAmountEl = document.getElementById('depositAmount');
 const winCoefEl = document.getElementById('winCoef');
 const winAmountEl = document.getElementById('winAmount');
 const returnCoefEl = document.getElementById('returnCoef');
 const returnAmountEl = document.getElementById('returnAmount');
 const resultEl = document.getElementById('result');
 const presetBtns = document.querySelectorAll('.chance-preset');
+const betMinusBtn = document.getElementById('betMinus');
+const betPlusBtn = document.getElementById('betPlus');
+const betMaxBtn = document.getElementById('betMax');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -102,11 +196,12 @@ const MAX_SPEED = 25;
 const FRICTION = 0.99;
 const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
-const FAST_MULTIPLIER = 3;
+const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
 const INITIAL_BALANCE = 3;
 const STORAGE_KEY = 'ricochet_balance';
 const COLORS = { red: '#e00000', green: '#00b300' };
+const BET_STEP = 0.1;
 
 let currentLayout = null;
 let fieldPainted = false;
@@ -176,6 +271,7 @@ function updateSections() {
 function updateInfo() {
   const bet = Number(betInput.value) || 0;
   const { W, R } = calcCoefficients(greenPercent / 100);
+  depositAmountEl.textContent = bet.toFixed(2);
   winCoefEl.textContent = W.toFixed(3);
   returnCoefEl.textContent = R.toFixed(3);
   winAmountEl.textContent = (bet * W).toFixed(2);
@@ -190,6 +286,9 @@ function updateControls() {
   slider.disabled = busy;
   fastModeEl.disabled = busy;
   presetBtns.forEach(btn => btn.disabled = busy);
+  betMinusBtn.disabled = busy;
+  betPlusBtn.disabled = busy;
+  betMaxBtn.disabled = busy || balance <= 0;
   balanceEl.textContent = balance.toFixed(2);
 }
 
@@ -345,6 +444,25 @@ function resetGame() {
   location.reload();
 }
 
+function stepBet(delta) {
+  if (flying || pendingResult) return;
+  let v = Number(betInput.value) || 0;
+  v = Math.round((v + delta) * 10) / 10;
+  if (v < BET_STEP) v = BET_STEP;
+  betInput.value = v.toFixed(1);
+  updateInfo();
+  updateControls();
+}
+
+function setMaxBet() {
+  if (flying || pendingResult) return;
+  const v = Math.floor(balance * 100) / 100;
+  if (v <= 0) return;
+  betInput.value = v.toFixed(2);
+  updateInfo();
+  updateControls();
+}
+
 function loop() {
   const steps = fastModeEl.checked ? FAST_MULTIPLIER : 1;
   for (let i = 0; i < steps; i++) {
@@ -362,6 +480,9 @@ slider.addEventListener('input', updateSections);
 betInput.addEventListener('input', () => { updateInfo(); updateControls(); });
 spinBtn.addEventListener('click', spin);
 resetBtn.addEventListener('click', resetGame);
+betMinusBtn.addEventListener('click', () => stepBet(-BET_STEP));
+betPlusBtn.addEventListener('click', () => stepBet(BET_STEP));
+betMaxBtn.addEventListener('click', setMaxBet);
 
 presetBtns.forEach(btn => {
   btn.addEventListener('click', () => {
