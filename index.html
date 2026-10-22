@@ -23,14 +23,89 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     background: #ffffff;
     overflow: hidden;
     gap: 10px;
     font-family: sans-serif;
     font-size: 12px;
-    padding: 10px;
+    padding: 0 10px 10px;
     -webkit-text-size-adjust: 100%;
+  }
+  .topbar {
+    width: 100vw;
+    margin-left: -10px;
+    margin-right: -10px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border-bottom: 1px solid #cccccc;
+    flex-shrink: 0;
+  }
+  .topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .topbar-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .topbar-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .topbar-balance {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .topbar-balance img {
+    width: 24px;
+    height: 24px;
+  }
+  .topbar-reset {
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+    width: 24px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 12px;
+    border: none;
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: 1;
+    width: 100%;
   }
   .game { border: 3px solid #000000; display: block; max-width: 100%; -webkit-user-drag: none; }
   .controls {
@@ -364,6 +439,18 @@
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="topbar-user" id="topbarUser"></div>
+  <div class="topbar-right">
+    <div class="topbar-balance">
+      <code id="balance"></code>
+      <img src="gram.png" alt="GRAM">
+    </div>
+    <button class="topbar-reset" id="reset" title="Заново">+</button>
+  </div>
+</header>
+
+<div class="main">
 <div style="position: relative; width: 250px; height: 250px;">
   <canvas class="game" id="canvas" width="250" height="250"></canvas>
   <div class="game-over-overlay" id="gameOverOverlay">
@@ -385,11 +472,6 @@
   <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
 </div>
 
-<div class="controls">
-  <span>Баланс: <code id="balance"></code> GRAM</span>
-  <button id="reset">Заново</button>
-</div>
-
 <div class="controls bet-row">
   <button id="betMinus">−</button>
   <input type="number" id="bet" value="1" min="0" step="0.1">
@@ -397,7 +479,7 @@
   <button id="betMax">МАКС</button>
 </div>
 
-  <div class="controls">
+<div class="controls">
   <input type="range" id="chance" min="10" max="75" value="30" step="1">
   <span id="chanceValue">30%</span>
 </div>
@@ -427,6 +509,7 @@
 </div>
 
 <div id="result"></div>
+</div>
 
 <div class="inventory-overlay" id="inventoryOverlay">
   <div class="inventory-modal">
@@ -473,6 +556,7 @@ const gameOverOverlay = document.getElementById('gameOverOverlay');
 const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReward = document.getElementById('gameOverReward');
 const gameOverBet = document.getElementById('gameOverBet');
+const topbarUser = document.getElementById('topbarUser');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -566,6 +650,28 @@ let inventory = (() => {
 
 let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
 let flying = false, accelerating = false;
+
+function initTopbarUser() {
+  if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+    const user = window.Telegram.WebApp.initDataUnsafe.user;
+    if (user) {
+      const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || '';
+      if (user.photo_url) {
+        const img = document.createElement('img');
+        img.className = 'topbar-avatar';
+        img.src = user.photo_url;
+        img.alt = name;
+        topbarUser.appendChild(img);
+      }
+      if (name) {
+        const span = document.createElement('span');
+        span.className = 'topbar-name';
+        span.textContent = name;
+        topbarUser.appendChild(span);
+      }
+    }
+  }
+}
 
 function saveBalance() {
   localStorage.setItem(STORAGE_KEY, String(balance));
@@ -1210,6 +1316,7 @@ presetBtns.forEach(btn => {
   });
 });
 
+initTopbarUser();
 currentLayout = buildLayout(30);
 fieldPainted = true;
 updateSections();
