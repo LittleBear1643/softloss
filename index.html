@@ -527,9 +527,6 @@ if (window.Telegram && window.Telegram.WebApp) {
   const tg = window.Telegram.WebApp;
   tg.ready();
   tg.expand();
-  if (tg.requestFullscreen) {
-    try { tg.requestFullscreen(); } catch (e) {}
-  }
 }
 
 const canvas = document.getElementById('canvas');
