@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>softloss</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel='stylesheet' href='https://cdn-uicons.flaticon.com/4.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css'>
 <style>
   * { 
     margin: 0; 
@@ -19,22 +20,18 @@
   button { cursor: pointer; outline: none; }
   img { -webkit-user-drag: none; }
   body {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     background: #ffffff;
     overflow: hidden;
-    gap: 10px;
     font-family: sans-serif;
     font-size: 12px;
-    padding: 0 10px 10px;
     -webkit-text-size-adjust: 100%;
   }
   .topbar {
-    width: 100vw;
-    margin-left: -10px;
-    margin-right: -10px;
+    width: 100%;
     padding: 8px;
     display: flex;
     align-items: center;
@@ -83,7 +80,7 @@
     height: 24px;
   }
   .topbar-reset {
-    background: none;
+    background: #ccc;
     border: none;
     padding: 0;
     display: flex;
@@ -94,18 +91,57 @@
     line-height: 1;
     width: 24px;
     height: 24px;
-    background: #ccc;
     border-radius: 12px;
-    border: none;
   }
-  .main {
+  .content {
+    flex: 1;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .game-page {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    flex: 1;
     width: 100%;
+    padding: 10px;
+    min-height: 100%;
+  }
+  .game-page.hidden {
+    display: none;
+  }
+  .shop-page {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100vw;
+    padding: 10px;
+  }
+  .shop-page.active {
+    display: flex;
+  }
+  .shop-title {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    width: 100%;
+    text-align: left;
+  }
+  .shop-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100vw;
+  }
+  .shop-grid .inventory-item {
+    width: calc((100% - 32px) / 3);
+    margin: 4px;
+    padding: 4px;
   }
   .game { border: 3px solid #000000; display: block; max-width: 100%; -webkit-user-drag: none; }
   .controls {
@@ -335,6 +371,13 @@
     margin-left: 4px;
     -webkit-user-drag: none;
   }
+  .inventory-item button {
+    margin-top: 4px;
+    padding-bottom: 4px;
+    width: 100%;
+    border-radius: 6px;
+    border: solid 1px #777;
+  }
 
   .game-over-overlay {
     position: absolute;
@@ -436,6 +479,100 @@
     height: 48px;
     margin: 0;
   }
+
+  .bottom-nav {
+    width: 100%;
+    display: flex;
+    background: #ffffff;
+    border-top: 1px solid #cccccc;
+    flex-shrink: 0;
+  }
+  .bottom-nav button {
+    flex: 1 1 33.333%;
+    width: 33.333%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 8px 8px 8px;
+    background: none;
+    border: none;
+    font-family: sans-serif;
+    font-size: 11px;
+    color: #333;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bottom-nav button i {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .buy-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .buy-overlay.open { display: flex; }
+  .buy-modal {
+    background: #fff;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 32px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .buy-nft-img {
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    object-fit: cover;
+  }
+  .buy-question {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .buy-table {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+    gap: 6px;
+  }
+  .buy-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    padding: 8px 0;
+  }
+  .buy-row.total {
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .buy-actions {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .buy-actions button {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
@@ -450,66 +587,79 @@
   </div>
 </header>
 
-<div class="main">
-<div style="position: relative; width: 250px; height: 250px;">
-  <canvas class="game" id="canvas" width="250" height="250"></canvas>
-  <div class="game-over-overlay" id="gameOverOverlay">
-    <div class="game-over-content">
-      <div class="game-over-title" id="gameOverTitle"></div>
-      <div class="game-over-subtitle">Вы выиграли:</div>
-      <div class="game-over-reward" id="gameOverReward"></div>
-      <div class="game-over-bet-label">Ваша ставка:</div>
-      <div class="game-over-bet" id="gameOverBet"></div>
+<div class="content" id="content">
+  <div class="game-page" id="gamePage">
+    <div style="position: relative; width: 250px; height: 250px;">
+      <canvas class="game" id="canvas" width="250" height="250"></canvas>
+      <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-content">
+          <div class="game-over-title" id="gameOverTitle"></div>
+          <div class="game-over-subtitle">Вы выиграли:</div>
+          <div class="game-over-reward" id="gameOverReward"></div>
+          <div class="game-over-bet-label">Ваша ставка:</div>
+          <div class="game-over-bet" id="gameOverBet"></div>
+        </div>
+      </div>
     </div>
+
+    <div class="spin-row">
+      <button id="spin"><b>Вперёд!</b></button>
+    </div>
+
+    <div class="controls">
+      <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
+    </div>
+
+    <div class="controls bet-row">
+      <button id="betMinus">−</button>
+      <input type="number" id="bet" value="1" min="0" step="0.1">
+      <button id="betPlus">+</button>
+      <button id="betMax">МАКС</button>
+    </div>
+
+    <div class="controls">
+      <input type="range" id="chance" min="10" max="75" value="30" step="1">
+      <span id="chanceValue">30%</span>
+    </div>
+
+    <div class="controls">
+      <button class="chance-preset" data-chance="30">30%</button>
+      <button class="chance-preset" data-chance="50">50%</button>
+      <button class="chance-preset" data-chance="75">75%</button>
+    </div>
+
+    <div class="outcome-row">
+      <div class="left-col">
+        <div class="box-deposit" id="depositContainer">
+        </div>
+      </div>
+
+      <div class="outcome-arrow">→</div>
+
+      <div class="outcome-right">
+        <div class="box-win" id="winContainer"></div>
+        
+        <div class="outcome-or">либо</div>
+        
+        <div class="box-return" id="returnContainer">
+        </div>
+      </div>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <div class="shop-page" id="shopPage">
+    <div class="shop-title">Маркет</div>
+    <div class="shop-grid" id="shopGrid"></div>
   </div>
 </div>
 
-<div class="spin-row">
-  <button id="spin"><b>Вперёд!</b></button>
-</div>
-
-<div class="controls">
-  <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
-</div>
-
-<div class="controls bet-row">
-  <button id="betMinus">−</button>
-  <input type="number" id="bet" value="1" min="0" step="0.1">
-  <button id="betPlus">+</button>
-  <button id="betMax">МАКС</button>
-</div>
-
-<div class="controls">
-  <input type="range" id="chance" min="10" max="75" value="30" step="1">
-  <span id="chanceValue">30%</span>
-</div>
-
-<div class="controls">
-  <button class="chance-preset" data-chance="30">30%</button>
-  <button class="chance-preset" data-chance="50">50%</button>
-  <button class="chance-preset" data-chance="75">75%</button>
-</div>
-
-<div class="outcome-row">
-  <div class="left-col">
-    <div class="box-deposit" id="depositContainer">
-    </div>
-  </div>
-
-  <div class="outcome-arrow">→</div>
-
-  <div class="outcome-right">
-    <div class="box-win" id="winContainer"></div>
-    
-    <div class="outcome-or">либо</div>
-    
-    <div class="box-return" id="returnContainer">
-    </div>
-  </div>
-</div>
-
-<div id="result"></div>
-</div>
+<nav class="bottom-nav">
+  <button type="button" class="nav-btn" id="navHome"><i class="fi fi-rr-home"></i><span>Главная</span></button>
+  <button type="button" class="nav-btn" id="navInventory"><i class="fi fi-rr-gift-box-benefits"></i><span>Инвентарь</span></button>
+  <button type="button" class="nav-btn" id="navShop"><i class="fi fi-rr-shop"></i><span>Маркет</span></button>
+</nav>
 
 <div class="inventory-overlay" id="inventoryOverlay">
   <div class="inventory-modal">
@@ -518,6 +668,28 @@
       <button class="inventory-close" id="inventoryClose">×</button>
     </div>
     <div class="inventory-list" id="inventoryList"></div>
+  </div>
+</div>
+
+<div class="buy-overlay" id="buyOverlay">
+  <div class="buy-modal">
+    <img class="buy-nft-img" id="buyNftImg" src="" alt="">
+    <div class="buy-question" id="buyQuestion"></div>
+    <div class="buy-table" id="buyTable">
+      <div class="buy-row">
+        <span>Цена подарка</span>
+        <span id="buyPrice"></span>
+      </div>
+      <div class="buy-row">
+        <span>Комиссия маркета</span>
+        <span id="buyCommission"></span>
+      </div>
+      <div class="buy-row total">
+        <span>Итоговая цена</span>
+        <span id="buyTotal"></span>
+      </div>
+    </div>
+    <div class="buy-actions" id="buyActions"></div>
   </div>
 </div>
 
@@ -554,6 +726,21 @@ const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReward = document.getElementById('gameOverReward');
 const gameOverBet = document.getElementById('gameOverBet');
 const topbarUser = document.getElementById('topbarUser');
+const gamePage = document.getElementById('gamePage');
+const shopPage = document.getElementById('shopPage');
+const shopGrid = document.getElementById('shopGrid');
+const contentEl = document.getElementById('content');
+const navHome = document.getElementById('navHome');
+const navInventory = document.getElementById('navInventory');
+const navShop = document.getElementById('navShop');
+const buyOverlay = document.getElementById('buyOverlay');
+const buyNftImg = document.getElementById('buyNftImg');
+const buyQuestion = document.getElementById('buyQuestion');
+const buyTable = document.getElementById('buyTable');
+const buyPrice = document.getElementById('buyPrice');
+const buyCommission = document.getElementById('buyCommission');
+const buyTotal = document.getElementById('buyTotal');
+const buyActions = document.getElementById('buyActions');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -570,15 +757,30 @@ const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
 const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
 const TRAIL_LIFETIME = 500;
+const MARKET_COMMISSION = 0.1;
 
 const ALL_NFTS = [
   { name: 'Lunar Snake', id: 154204, price: 3.57 },
+  { name: 'Lunar Snake', id: 161673, price: 3.64 },
+  { name: 'Lunar Snake', id: 10171, price: 3.77 },
+  { name: 'Lunar Snake', id: 102614, price: 3.96 },
+  { name: 'Lunar Snake', id: 104504, price: 4.29 },
   { name: 'Mood Pack', id: 96038, price: 4.83 },
+  { name: 'Mood Pack', id: 128034, price: 5.08 },
+  { name: 'Mood Pack', id: 128387, price: 5.37 },
+  { name: 'Mood Pack', id: 132193, price: 5.51 },
   { name: 'Easter Egg', id: 82565, price: 5.14 },
+  { name: 'Easter Egg', id: 27818, price: 5.39 },
+  { name: 'Easter Egg', id: 92672, price: 5.67 },
   { name: 'Vice Cream', id: 39436, price: 7.62 },
+  { name: 'Vice Cream', id: 431299, price: 7.93 },
+  { name: 'Vice Cream', id: 404414, price: 8.12 },
   { name: 'Lush Bouquet', id: 103223, price: 8.29 },
+  { name: 'Lush Bouquet', id: 80218, price: 9.07 },
   { name: 'Surge Board', id: 11063, price: 10.91 },
+  { name: 'Record Player', id: 30676, price: 11.16 },
   { name: 'Pretty Posy', id: 15210, price: 11.36 },
+  { name: 'Skull Flower', id: 1012, price: 12.90 },
   { name: 'Timeless Book', id: 53496, price: 13.74 },
   { name: 'Fine Pen', id: 19779, price: 14.08 },
   { name: 'Mad Pumpkin', id: 393, price: 16.45 },
@@ -597,21 +799,51 @@ const ALL_NFTS = [
   { name: 'Neko Helmet', id: 1075, price: 64.12 },
   { name: 'Bonded Ring', id: 5842, price: 77.49 },
   { name: 'Swiss Watch', id: 21384, price: 85.86 },
+  { name: 'Swiss Watch', id: 14207, price: 96.23 },
+  { name: 'Swiss Watch', id: 3184, price: 107.79 },
   { name: 'Sharp Tongue', id: 4405, price: 93.03 },
+  { name: 'Sharp Tongue', id: 3971, price: 104.17 },
+  { name: 'Sharp Tongue', id: 1206, price: 116.69 },
   { name: 'Ion Gem', id: 3352, price: 102.71 },
+  { name: 'Ion Gem', id: 2801, price: 115.06 },
+  { name: 'Ion Gem', id: 947, price: 128.84 },
   { name: 'Perfume Bottle', id: 733, price: 111.58 },
+  { name: 'Perfume Bottle', id: 512, price: 124.97 },
+  { name: 'Perfume Bottle', id: 68, price: 139.97 },
   { name: 'Fresh Socks', id: 36863, price: 139.92 },
   { name: 'Artisan Brick', id: 6086, price: 146.17 },
+  { name: 'Artisan Brick', id: 4473, price: 163.72 },
+  { name: 'Artisan Brick', id: 2190, price: 183.38 },
   { name: 'Loot Bag', id: 2216, price: 160.64 },
+  { name: 'Loot Bag', id: 1834, price: 179.93 },
+  { name: 'Loot Bag', id: 402, price: 201.54 },
   { name: 'Nail Bracelet', id: 1610, price: 190.38 },
+  { name: 'Nail Bracelet', id: 1108, price: 213.24 },
+  { name: 'Nail Bracelet', id: 326, price: 238.85 },
   { name: 'Astral Shard', id: 1510, price: 228.85 },
+  { name: 'Astral Shard', id: 902, price: 256.32 },
+  { name: 'Astral Shard', id: 217, price: 287.08 },
   { name: 'Mighty Arm', id: 1222, price: 253.26 },
+  { name: 'Mighty Arm', id: 803, price: 283.66 },
+  { name: 'Mighty Arm', id: 194, price: 317.71 },
   { name: 'Scared Cat', id: 11352, price: 312.73 },
+  { name: 'Scared Cat', id: 6874, price: 350.26 },
+  { name: 'Scared Cat', id: 1502, price: 392.31 },
   { name: 'Heroic Helmet', id: 1211, price: 351.09 },
+  { name: 'Heroic Helmet', id: 877, price: 393.23 },
+  { name: 'Heroic Helmet', id: 245, price: 440.42 },
   { name: 'Precious Peach', id: 1757, price: 404.54 },
+  { name: 'Precious Peach', id: 1249, price: 453.09 },
+  { name: 'Precious Peach', id: 388, price: 1907.48 },
   { name: "Durov's Cap", id: 975, price: 532.31 },
+  { name: "Durov's Cap", id: 661, price: 596.19 },
+  { name: "Durov's Cap", id: 217, price: 667.75 },
   { name: "Durov's Glasses", id: 1525, price: 758.96 },
-  { name: 'Heart Locket', id: 1647, price: 1065.42 }
+  { name: "Durov's Glasses", id: 988, price: 850.04 },
+  { name: "Durov's Glasses", id: 364, price: 952.05 },
+  { name: 'Heart Locket', id: 1647, price: 1065.42 },
+  { name: 'Heart Locket', id: 1103, price: 1193.27 },
+  { name: 'Heart Locket', id: 412, price: 1336.47 }
 ];
 
 let currentLayout = null;
@@ -623,6 +855,7 @@ let pendingResult = false;
 let depositNfts = [];
 let currentReward = null;
 let gameOverVisible = false;
+let pendingBuyNft = null;
 
 let trailPoints = [];
 let lastTrailX = null;
@@ -1252,6 +1485,109 @@ function renderInventory() {
   });
 }
 
+function renderShop() {
+  shopGrid.innerHTML = '';
+  const available = ALL_NFTS
+    .filter(n => !inventory.some(inv => inv.id === n.id))
+    .slice()
+    .sort((a, b) => a.price - b.price);
+  available.forEach(nft => {
+    const item = document.createElement('div');
+    item.className = 'inventory-item';
+    item.innerHTML = `
+      <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
+      <button><code class="inv-price">${nft.price} <img src="gram.png"></code></button>
+    `;
+    item.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openBuyModal(nft);
+    });
+    shopGrid.appendChild(item);
+  });
+}
+
+function clearBuyActions() {
+  buyActions.innerHTML = '';
+}
+
+function createBuyButton(label, handler) {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  btn.addEventListener('click', handler);
+  buyActions.appendChild(btn);
+  return btn;
+}
+
+function openBuyModal(nft) {
+  pendingBuyNft = nft;
+  const commission = nft.price * MARKET_COMMISSION;
+  const total = nft.price + commission;
+  buyNftImg.src = nftUrl(nft);
+  buyNftImg.alt = `${nft.name} #${nft.id}`;
+  buyQuestion.innerHTML = `Вы точно хотите купить ${nft.name} #${nft.id} за <code>${nft.price}</code> GRAM?`;
+  buyPrice.innerHTML = `<code>${nft.price}</code> GRAM`;
+  buyCommission.innerHTML = `<code>${commission.toFixed(2)}</code> GRAM`;
+  buyTotal.innerHTML = `<code>${total.toFixed(2)}</code> GRAM`;
+  buyTable.style.display = 'flex';
+  clearBuyActions();
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.innerHTML = `Купить за <code>${total.toFixed(2)}</code> GRAM`;
+  confirmBtn.addEventListener('click', () => {
+    handleConfirmBuy(nft, total);
+  });
+  buyActions.appendChild(confirmBtn);
+
+  createBuyButton('Отказаться', closeBuyModal);
+
+  buyOverlay.classList.add('open');
+}
+
+function handleConfirmBuy(nft, total) {
+  if (balance >= total) {
+    balance -= total;
+    inventory.push({ ...nft });
+    saveBalance();
+    saveInventory();
+    updateControls();
+    renderShop();
+    updateInfo();
+    buyQuestion.textContent = `Подарок ${nft.name} #${nft.id} успешно куплен за ${total.toFixed(2)} GRAM!`;
+    buyTable.style.display = 'none';
+    clearBuyActions();
+    createBuyButton('Играть', () => {
+      closeBuyModal();
+      showPage('game');
+    });
+    createBuyButton('Закрыть', closeBuyModal);
+  } else {
+    buyQuestion.textContent = 'У вас недостаточно GRAM на балансе!';
+    buyTable.style.display = 'none';
+    clearBuyActions();
+    createBuyButton('Пополнить баланс', () => {});
+    createBuyButton('Закрыть', closeBuyModal);
+  }
+}
+
+function closeBuyModal() {
+  buyOverlay.classList.remove('open');
+  pendingBuyNft = null;
+  buyTable.style.display = 'flex';
+  clearBuyActions();
+}
+
+function showPage(page) {
+  if (page === 'game') {
+    gamePage.classList.remove('hidden');
+    shopPage.classList.remove('active');
+  } else if (page === 'shop') {
+    gamePage.classList.add('hidden');
+    shopPage.classList.add('active');
+    renderShop();
+  }
+  contentEl.scrollTop = 0;
+}
+
 function loop(timestamp) {
   const steps = fastModeEl.checked ? FAST_MULTIPLIER : 1;
   for (let i = 0; i < steps; i++) {
@@ -1303,6 +1639,13 @@ betMaxBtn.addEventListener('click', setMaxBet);
 inventoryClose.addEventListener('click', closeInventory);
 inventoryOverlay.addEventListener('click', (e) => {
   if (e.target === inventoryOverlay) closeInventory();
+});
+
+navHome.addEventListener('click', () => showPage('game'));
+navShop.addEventListener('click', () => showPage('shop'));
+
+buyOverlay.addEventListener('click', (e) => {
+  if (e.target === buyOverlay) closeBuyModal();
 });
 
 presetBtns.forEach(btn => {
