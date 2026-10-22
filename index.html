@@ -30,13 +30,20 @@
     align-items: center;
     gap: 8px;
   }
+  .controls label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
   .controls input[type="range"] { flex: 1; min-width: 0; }
+  .controls input[type="checkbox"] { margin-right: 4px; }
   .controls span { min-width: 40px; text-align: right; font-weight: bold; }
   .controls input[type="number"] { width: 70px; padding: 3px; }
   .controls button { padding: 3px 8px; }
   .bet-row { gap: 4px; }
   .bet-row input[type="number"] { flex: 1; min-width: 0; width: auto; }
-  .spin-row { width: 250px; margin-bottom: 16px; }
+  .spin-row { width: 250px; }
   .spin-row button { width: 100%; padding: 8px 0; font-size: 14px; }
   #result {
     width: 250px;
@@ -149,10 +156,14 @@
     position: relative;
     top: -3px;
   }
-  .btn-add-nft {
-    font-size: 12px;
-    width: 112px;
-    padding: 2px 0;
+  
+  .cube-add-nft {
+    background: #eeeeee;
+    color: #777;
+    font-size: 24px;
+    font-weight: normal;
+    cursor: pointer;
+    transition: background 0.1s;
   }
 
   .inventory-overlay {
@@ -171,6 +182,7 @@
     width: 100%;
     width: 332px;
     max-height: 80vh;
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -179,7 +191,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 8px;
+    padding: 10px 14px;
     border-bottom: 1px solid #eee;
     font-size: 20px;
   }
@@ -220,25 +232,18 @@
     object-fit: cover;
     display: block;
   }
-  .inventory-item button {
-    display: block;
-    border-radius: 6px;
-    padding: 4px 0;
-    width: 100%;
-    border: 1px solid #555;
-    margin-top: 4px;
-    font-size: 12px;
-  }
-  .inventory-item button .inv-price {
+  .inventory-item .inv-price {
     display: flex;
     justify-content: center;
     align-items: center;
     flex-wrap: nowrap;
+    margin-top: 4px;
     font-weight: 600;
+    font-size: 12px;
   }
-  .inventory-item button .inv-price img {
-    width: 14px;
-    margin-left: 3px;
+  .inventory-item .inv-price img {
+    width: 16px;
+    margin-left: 4px;
   }
 </style>
 </head>
@@ -250,23 +255,22 @@
 </div>
 
 <div class="controls">
+  <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
+</div>
+
+<div class="controls">
   <span>Баланс: <code id="balance"></code> GRAM</span>
+  <button id="reset">Заново</button>
 </div>
 
 <div class="controls bet-row">
   <button id="betMinus">−</button>
-  <input type="number" id="bet" value="1" min="0" step="0.01">
+  <input type="number" id="bet" value="1" min="0" step="0.1">
   <button id="betPlus">+</button>
   <button id="betMax">МАКС</button>
 </div>
 
-<div class="controls">
-  <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
-  <button id="reset">Заново</button>
-</div>
-
-<div class="controls">
-  <label for="chance">Шанс:</label>
+  <div class="controls">
   <input type="range" id="chance" min="10" max="75" value="30" step="1">
   <span id="chanceValue">30%</span>
 </div>
@@ -281,7 +285,6 @@
   <div class="left-col">
     <div class="box-deposit" id="depositContainer">
     </div>
-    <button id="addNftBtn" class="btn-add-nft">Добавить NFT</button>
   </div>
 
   <div class="outcome-arrow">→</div>
@@ -301,7 +304,7 @@
 <div class="inventory-overlay" id="inventoryOverlay">
   <div class="inventory-modal">
     <div class="inventory-header">
-      <span>Инвентарь</span>
+      <span>Добавить NFT-подарки</span>
       <button class="inventory-close" id="inventoryClose">×</button>
     </div>
     <div class="inventory-list" id="inventoryList"></div>
@@ -323,7 +326,6 @@ const presetBtns = document.querySelectorAll('.chance-preset');
 const betMinusBtn = document.getElementById('betMinus');
 const betPlusBtn = document.getElementById('betPlus');
 const betMaxBtn = document.getElementById('betMax');
-const addNftBtn = document.getElementById('addNftBtn');
 const depositContainer = document.getElementById('depositContainer');
 const winContainer = document.getElementById('winContainer');
 const returnContainer = document.getElementById('returnContainer');
@@ -509,11 +511,22 @@ function generateReward(p, totalDeposit) {
   };
 }
 
-function createGramCube(amount) {
+function createGramCube(amount, isDeposit = false) {
   if (amount <= 0) return null;
   const gramCube = document.createElement('div');
   gramCube.className = 'cube cube-gram';
   gramCube.innerHTML = `<img src="gram.png"><code>${amount.toFixed(2)}</code>`;
+  
+  if (isDeposit) {
+    gramCube.style.cursor = 'pointer';
+    gramCube.addEventListener('click', () => {
+      if (flying || pendingResult) return;
+      betInput.value = '0.00';
+      updateInfo();
+      updateControls();
+    });
+  }
+  
   return gramCube;
 }
 
@@ -587,8 +600,25 @@ function renderDepositNfts() {
   });
 
   const bet = Number(betInput.value) || 0;
-  const gramCube = createGramCube(bet);
+  const gramCube = createGramCube(bet, true);
   if (gramCube) depositContainer.appendChild(gramCube);
+
+  let currentCubes = depositNfts.length;
+  if (bet > 0) currentCubes++;
+
+  if (currentCubes < 6) {
+    const addBtn = document.createElement('div');
+    addBtn.className = 'cube cube-add-nft';
+    addBtn.innerHTML = '+';
+    addBtn.addEventListener('click', openInventory);
+    
+    if (flying || pendingResult) {
+      addBtn.style.opacity = '0.5';
+      addBtn.style.pointerEvents = 'none';
+    }
+    
+    depositContainer.appendChild(addBtn);
+  }
 }
 
 function updateControls() {
@@ -606,7 +636,18 @@ function updateControls() {
   betMinusBtn.disabled = busy;
   betPlusBtn.disabled = busy;
   betMaxBtn.disabled = busy || balance <= 0;
-  addNftBtn.disabled = busy;
+  
+  const addNftBtnEl = depositContainer.querySelector('.cube-add-nft');
+  if (addNftBtnEl) {
+    if (busy) {
+      addNftBtnEl.style.opacity = '0.5';
+      addNftBtnEl.style.pointerEvents = 'none';
+    } else {
+      addNftBtnEl.style.opacity = '1';
+      addNftBtnEl.style.pointerEvents = 'auto';
+    }
+  }
+
   balanceEl.textContent = balance.toFixed(2);
 }
 
@@ -839,12 +880,13 @@ function renderInventory() {
     inventoryList.appendChild(empty);
     return;
   }
+    inventory.sort((a, b) => b.price - a.price);
   inventory.forEach((nft, idx) => {
     const item = document.createElement('div');
     item.className = 'inventory-item';
     item.innerHTML = `
       <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
-      <button>Продать за <code class="inv-price">${nft.price} <img src="gram.png"></code></button>
+      <code class="inv-price">${nft.price} <img src="gram.png"></code>
     `;
     item.addEventListener('click', () => {
       if (depositNfts.length >= 5) return;
@@ -880,7 +922,6 @@ resetBtn.addEventListener('click', resetGame);
 betMinusBtn.addEventListener('click', () => stepBet(-BET_STEP));
 betPlusBtn.addEventListener('click', () => stepBet(BET_STEP));
 betMaxBtn.addEventListener('click', setMaxBet);
-addNftBtn.addEventListener('click', openInventory);
 inventoryClose.addEventListener('click', closeInventory);
 inventoryOverlay.addEventListener('click', (e) => {
   if (e.target === inventoryOverlay) closeInventory();
