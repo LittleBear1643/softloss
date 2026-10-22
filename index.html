@@ -4,10 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>softloss</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+  * { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    user-select: none; 
+    -webkit-user-drag: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
   html, body { touch-action: manipulation; }
-  button { cursor: pointer; }
+  button { cursor: pointer; outline: none; }
+  img { -webkit-user-drag: none; }
   body {
     min-height: 100vh;
     display: flex;
@@ -22,7 +32,7 @@
     padding: 10px;
     -webkit-text-size-adjust: 100%;
   }
-  canvas { border: 3px solid #000000; display: block; max-width: 100%; }
+  .game { border: 3px solid #000000; display: block; max-width: 100%; -webkit-user-drag: none; }
   .controls {
     width: 250px;
     display: flex;
@@ -136,10 +146,12 @@
     font-weight: bold;
     background: #fff;
     overflow: hidden;
+    -webkit-user-drag: none;
   }
   .cube-nft {
     object-fit: cover;
     cursor: pointer;
+    -webkit-user-drag: none;
   }
   .cube-gram {
     display: flex;
@@ -151,6 +163,7 @@
   }
   .cube-gram > img {
     width: 32px;
+    -webkit-user-drag: none;
   }
   .cube-gram > code {
     position: relative;
@@ -231,6 +244,7 @@
     aspect-ratio: 1;
     object-fit: cover;
     display: block;
+    -webkit-user-drag: none;
   }
   .inventory-item .inv-price {
     display: flex;
@@ -244,11 +258,124 @@
   .inventory-item .inv-price img {
     width: 16px;
     margin-left: 4px;
+    -webkit-user-drag: none;
+  }
+
+  .game-over-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 6px;
+    box-sizing: border-box;
+    color: #fff;
+  }
+  .game-over-overlay.show {
+    display: flex;
+  }
+  .game-over-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+  }
+  .game-over-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 4px #000;
+  }
+  .game-over-subtitle {
+    font-size: 12px;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 0 3px #000;
+  }
+  .game-over-reward {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .game-over-reward .cube {
+    width: 72px;
+    height: 72px;
+    margin: 0;
+    border-radius: 6px;
+  }
+  .game-over-reward .cube-gram {
+    font-size: 16px;
+  }
+  .game-over-reward .cube-gram > img {
+    width: 48px;
+  }
+  .game-over-reward .cube-gram > code {
+    top: -5px;
+  }
+  .game-over-bet-label {
+    font-size: 10px;
+    margin-bottom: 4px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 4px #000;
+  }
+  .game-over-bet {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 4px;
+    max-width: 180px;
+    padding-bottom: 2px;
+    cursor: grab;
+    scroll-behavior: smooth;
+  }
+  .game-over-bet:active {
+    cursor: grabbing;
+  }
+  .game-over-bet img, .game-over-bet .cube {
+    cursor: inherit;
+  }
+  .game-over-bet::-webkit-scrollbar {
+    display: none;
+  }
+  .game-over-bet {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .game-over-bet .cube {
+    width: 48px;
+    height: 48px;
+    margin: 0;
   }
 </style>
 </head>
 <body>
-<canvas id="canvas" width="250" height="250"></canvas>
+<div style="position: relative; width: 250px; height: 250px;">
+  <canvas class="game" id="canvas" width="250" height="250"></canvas>
+  <div class="game-over-overlay" id="gameOverOverlay">
+    <div class="game-over-content">
+      <div class="game-over-title" id="gameOverTitle"></div>
+      <div class="game-over-subtitle">Вы выиграли:</div>
+      <div class="game-over-reward" id="gameOverReward"></div>
+      <div class="game-over-bet-label">Ваша ставка:</div>
+      <div class="game-over-bet" id="gameOverBet"></div>
+    </div>
+  </div>
+</div>
 
 <div class="spin-row">
   <button id="spin"><b>Вперёд!</b></button>
@@ -311,7 +438,17 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>
+if (window.Telegram && window.Telegram.WebApp) {
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  if (tg.requestFullscreen) {
+    try { tg.requestFullscreen(); } catch (e) {}
+  }
+}
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const slider = document.getElementById('chance');
@@ -332,6 +469,10 @@ const returnContainer = document.getElementById('returnContainer');
 const inventoryOverlay = document.getElementById('inventoryOverlay');
 const inventoryClose = document.getElementById('inventoryClose');
 const inventoryList = document.getElementById('inventoryList');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const gameOverTitle = document.getElementById('gameOverTitle');
+const gameOverReward = document.getElementById('gameOverReward');
+const gameOverBet = document.getElementById('gameOverBet');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -341,11 +482,13 @@ const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
 const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
-const INITIAL_BALANCE = 50;
+const INITIAL_BALANCE = 500;
 const STORAGE_KEY = 'ricochet_balance';
 const INVENTORY_KEY = 'ricochet_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
+const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
+const TRAIL_LIFETIME = 500;
 
 const ALL_NFTS = [
   { name: 'Lunar Snake', id: 154204, price: 3.57 },
@@ -398,6 +541,11 @@ let currentBet = 0;
 let pendingResult = false;
 let depositNfts = [];
 let currentReward = null;
+let gameOverVisible = false;
+
+let trailPoints = [];
+let lastTrailX = null;
+let lastTrailY = null;
 
 let balance = (() => {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -655,6 +803,9 @@ function spawnBall() {
   x = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
   y = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
   vx = 0; vy = 0; speed = 0; flying = false; accelerating = false;
+  trailPoints = [];
+  lastTrailX = null;
+  lastTrailY = null;
 }
 
 function launch() {
@@ -663,6 +814,27 @@ function launch() {
   dirY = Math.sin(angle);
   speed = 0; vx = 0; vy = 0;
   flying = true; accelerating = true;
+  trailPoints = [];
+  lastTrailX = x;
+  lastTrailY = y;
+}
+
+function updateTrail(now) {
+  trailPoints = trailPoints.filter(p => now - p.time < TRAIL_LIFETIME);
+  if (!flying) return;
+  if (lastTrailX === null) {
+    lastTrailX = x;
+    lastTrailY = y;
+    return;
+  }
+  const dx = x - lastTrailX;
+  const dy = y - lastTrailY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist >= TRAIL_INTERVAL) {
+    trailPoints.push({ x, y, time: now });
+    lastTrailX = x;
+    lastTrailY = y;
+  }
 }
 
 function update() {
@@ -728,12 +900,25 @@ function drawField(layout) {
   }
 }
 
-function draw() {
+function drawTrail(now) {
+  for (const p of trailPoints) {
+    const age = now - p.time;
+    const alpha = 0.35 * (1 - age / TRAIL_LIFETIME);
+    if (alpha <= 0) continue;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.fill();
+  }
+}
+
+function draw(now) {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, FIELD_SIZE, FIELD_SIZE);
   if (fieldPainted && currentLayout) {
     drawField(currentLayout);
   }
+  drawTrail(now);
   ctx.beginPath();
   ctx.arc(x, y, BALL_RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = '#ffffff';
@@ -769,49 +954,106 @@ function checkResult() {
   const totalDeposit = currentBet + nftTotal;
   const isWin = isInGreenZone();
 
+  let winNft = null;
+  let winGram = 0;
+
   if (isWin) {
     const reward = currentReward;
     if (!reward) return;
 
-    if (reward.nft) {
-      inventory.push(reward.nft);
+    winNft = reward.nft;
+    winGram = reward.gram;
+
+    if (winNft) {
+      inventory.push(winNft);
       saveInventory();
     }
-    balance += reward.gram;
+    balance += winGram;
     
-    if (reward.nft) {
-      resultEl.textContent = `Выигрыш! ${reward.nft.name} + ${reward.gram.toFixed(2)} GRAM`;
-    } else {
-      resultEl.textContent = `Выигрыш! +${reward.gram.toFixed(2)} GRAM`;
-    }
-    resultEl.style.color = '#00b300';
   } else {
     const returnAmountVal = totalDeposit * R;
     const eligibleReturn = getAvailableNfts(returnAmountVal);
     
     if (eligibleReturn.length > 0) {
       const rnft = eligibleReturn[eligibleReturn.length - 1];
+      winNft = rnft;
+      winGram = returnAmountVal - rnft.price;
+      
       inventory.push({ ...rnft });
       saveInventory();
-      const gramBack = returnAmountVal - rnft.price;
-      balance += gramBack;
-      resultEl.textContent = `Возврат! ${rnft.name} + ${gramBack.toFixed(2)} GRAM`;
+      balance += winGram;
     } else {
+      winGram = returnAmountVal;
       balance += returnAmountVal;
-      resultEl.textContent = `Возврат: +${returnAmountVal.toFixed(2)} GRAM`;
     }
-    resultEl.style.color = '#e00000';
   }
+  
+  const betNfts = [...depositNfts];
+  const betAmount = currentBet;
+  
   depositNfts = [];
 
   saveBalance();
   pendingResult = false;
+  gameOverVisible = true;
+  
   updateInfo();
   updateControls();
 
   const currentBetVal = Number(betInput.value) || 0;
   if (currentBetVal > balance) {
     setMaxBet();
+  }
+
+  showGameOver(isWin, winNft, winGram, betNfts, betAmount);
+}
+
+function showGameOver(isWin, winNft, winGram, betNfts, betAmount) {
+  gameOverTitle.textContent = isWin ? 'Идеально!' : 'Почти!';
+  gameOverTitle.style.color = isWin ? '#00b300' : '#ef233c';
+  
+  gameOverReward.innerHTML = '';
+  if (winNft) {
+    const img = document.createElement('img');
+    img.src = nftUrl(winNft);
+    img.className = 'cube cube-nft';
+    img.style.margin = '0';
+    gameOverReward.appendChild(img);
+  }
+  if (winGram > 0) {
+    const gramCube = document.createElement('div');
+    gramCube.className = 'cube cube-gram';
+    gramCube.innerHTML = `<img src="gram.png"><code>${winGram.toFixed(2)}</code>`;
+    gramCube.style.margin = '0';
+    gameOverReward.appendChild(gramCube);
+  }
+  
+  gameOverBet.innerHTML = '';
+  
+  betNfts.forEach(nft => {
+    const img = document.createElement('img');
+    img.src = nftUrl(nft);
+    img.className = 'cube cube-nft';
+    img.style.margin = '0';
+    gameOverBet.appendChild(img);
+  });
+
+  if (betAmount > 0) {
+    const gramCube = document.createElement('div');
+    gramCube.className = 'cube cube-gram';
+    gramCube.innerHTML = `<img src="gram.png"><code>${betAmount.toFixed(2)}</code>`;
+    gramCube.style.margin = '0';
+    gameOverBet.appendChild(gramCube);
+  }
+
+  gameOverOverlay.classList.add('show');
+
+  if (isWin) {
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.6 }
+    });
   }
 }
 
@@ -822,6 +1064,10 @@ function spin() {
   const minBet = depositNfts.length > 0 ? 0 : 0.5;
   if (!bet && bet !== 0 || bet > balance || bet < minBet) return;
   if (total <= 0) return;
+  
+  gameOverVisible = false;
+  gameOverOverlay.classList.remove('show');
+  
   currentBet = bet;
   spinGreen = greenPercent;
   currentLayout = buildLayout(spinGreen);
@@ -830,6 +1076,7 @@ function spin() {
   saveBalance();
   resultEl.textContent = '';
   pendingResult = true;
+  
   spawnBall();
   launch();
   updateControls();
@@ -902,7 +1149,7 @@ function renderInventory() {
   });
 }
 
-function loop() {
+function loop(timestamp) {
   const steps = fastModeEl.checked ? FAST_MULTIPLIER : 1;
   for (let i = 0; i < steps; i++) {
     update();
@@ -911,9 +1158,37 @@ function loop() {
       break;
     }
   }
-  draw();
+  updateTrail(timestamp);
+  draw(timestamp);
   requestAnimationFrame(loop);
 }
+
+let isDown = false;
+let startX;
+let scrollLeft;
+
+gameOverBet.addEventListener('mousedown', (e) => {
+  isDown = true;
+  gameOverBet.style.cursor = 'grabbing';
+  startX = e.pageX - gameOverBet.offsetLeft;
+  scrollLeft = gameOverBet.scrollLeft;
+  e.preventDefault();
+});
+gameOverBet.addEventListener('mouseleave', () => {
+  isDown = false;
+  gameOverBet.style.cursor = 'grab';
+});
+gameOverBet.addEventListener('mouseup', () => {
+  isDown = false;
+  gameOverBet.style.cursor = 'grab';
+});
+gameOverBet.addEventListener('mousemove', (e) => {
+  if (!isDown) return;
+  e.preventDefault();
+  const x = e.pageX - gameOverBet.offsetLeft;
+  const walk = (x - startX) * 1.5;
+  gameOverBet.scrollLeft = scrollLeft - walk;
+});
 
 slider.addEventListener('input', updateSections);
 betInput.addEventListener('input', () => { updateInfo(); updateControls(); });
@@ -935,10 +1210,12 @@ presetBtns.forEach(btn => {
   });
 });
 
+currentLayout = buildLayout(30);
+fieldPainted = true;
 updateSections();
 spawnBall();
 updateControls();
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
