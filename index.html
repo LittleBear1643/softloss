@@ -122,7 +122,7 @@
     display: none;
     flex-direction: column;
     align-items: center;
-    width: 100vw;
+    width: 100%;
     padding: 10px;
   }
   .shop-page.active {
@@ -132,7 +132,7 @@
     display: none;
     flex-direction: column;
     align-items: center;
-    width: 100vw;
+    width: 100%;
     padding: 10px;
   }
   .inventory-page.active {
@@ -150,12 +150,26 @@
     flex-wrap: wrap;
     justify-content: flex-start;
     padding-left: 4px;
-    width: 100vw;
+    width: 100%;
   }
   .shop-grid .inventory-item {
     width: calc((100% - 32px) / 3);
     margin: 4px;
     padding: 4px;
+  }
+  .shop-actions {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .shop-actions button {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 14px;
   }
   .game { border: 3px solid #000000; display: block; max-width: 100%; -webkit-user-drag: none; }
   .controls {
@@ -546,7 +560,9 @@
   .buy-overlay.open { display: flex; }
   .buy-modal {
     background: #fff;
+    max-width: 500px;
     width: 100%;
+    margin: 0 auto;
     border-radius: 16px 16px 0 0;
     padding: 32px 16px;
     display: flex;
@@ -597,6 +613,48 @@
     flex: 1;
     padding: 10px 0;
     font-size: 14px;
+  }
+  .sell-all-list {
+    width: 100%;
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .sell-all-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .sell-all-row img {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .sell-all-row .nft-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .sell-all-row .nft-total {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .sell-all-total {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 8px 0;
   }
 </style>
 </head>
@@ -681,6 +739,10 @@
 
   <div class="inventory-page" id="inventoryPage">
     <div class="shop-title">Инвентарь</div>
+    <div class="shop-actions">
+      <button id="sellAllNft">Продать все NFT</button>
+      <button id="depositNft">Добавить NFT</button>
+    </div>
     <div class="shop-grid" id="inventoryGrid"></div>
   </div>
 </div>
@@ -718,6 +780,11 @@
         <span>Итоговая цена</span>
         <span id="buyTotal"></span>
       </div>
+    </div>
+    <div class="sell-all-list" id="sellAllList"></div>
+    <div class="sell-all-total" id="sellAllTotal" style="display:none;">
+      <span>Итоговая цена</span>
+      <span id="sellAllTotalValue"></span>
     </div>
     <div class="buy-actions" id="buyActions"></div>
   </div>
@@ -773,6 +840,11 @@ const buyPrice = document.getElementById('buyPrice');
 const buyCommission = document.getElementById('buyCommission');
 const buyTotal = document.getElementById('buyTotal');
 const buyActions = document.getElementById('buyActions');
+const sellAllList = document.getElementById('sellAllList');
+const sellAllTotal = document.getElementById('sellAllTotal');
+const sellAllTotalValue = document.getElementById('sellAllTotalValue');
+const sellAllNftBtn = document.getElementById('sellAllNft');
+const depositNftBtn = document.getElementById('depositNft');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -790,6 +862,7 @@ const BET_STEP = 0.1;
 const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
 const TRAIL_LIFETIME = 500;
 const MARKET_COMMISSION = 0.1;
+const SELL_COMMISSION = 0.1;
 
 const ALL_NFTS = [
   { name: 'Lunar Snake', id: 154204, price: 3.57 },
@@ -888,6 +961,8 @@ let depositNfts = [];
 let currentReward = null;
 let gameOverVisible = false;
 let pendingBuyNft = null;
+let pendingSellNft = null;
+let sellAllMode = false;
 
 let trailPoints = [];
 let lastTrailX = null;
@@ -1561,6 +1636,10 @@ function renderInventoryPage() {
       <button class="sell-btn"><span>Продать</span></button>
       <button class="withdraw-btn"><span>Вывести</span></button>
     `;
+    item.querySelector('.sell-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSellModal(nft);
+    });
     inventoryGrid.appendChild(item);
   });
 }
@@ -1577,17 +1656,28 @@ function createBuyButton(label, handler) {
   return btn;
 }
 
+function resetBuyModalView() {
+  buyNftImg.style.display = '';
+  buyTable.style.display = 'flex';
+  sellAllList.style.display = 'none';
+  sellAllTotal.style.display = 'none';
+  sellAllList.innerHTML = '';
+  sellAllTotalValue.textContent = '';
+  sellAllMode = false;
+}
+
 function openBuyModal(nft) {
+  resetBuyModalView();
   pendingBuyNft = nft;
+  pendingSellNft = null;
   const commission = nft.price * MARKET_COMMISSION;
   const total = nft.price + commission;
   buyNftImg.src = nftUrl(nft);
   buyNftImg.alt = `${nft.name} #${nft.id}`;
-  buyQuestion.innerHTML = `Вы точно хотите купить ${nft.name} #${nft.id} за <code>${nft.price}</code> GRAM?`;
+  buyQuestion.innerHTML = `Вы точно хотите купить ${nft.name} #${nft.id} за <code>${total.toFixed(2)}</code> GRAM?`;
   buyPrice.innerHTML = `<code>${nft.price}</code> GRAM`;
   buyCommission.innerHTML = `<code>${commission.toFixed(2)}</code> GRAM`;
   buyTotal.innerHTML = `<code>${total.toFixed(2)}</code> GRAM`;
-  buyTable.style.display = 'flex';
   clearBuyActions();
 
   const confirmBtn = document.createElement('button');
@@ -1629,10 +1719,115 @@ function handleConfirmBuy(nft, total) {
   }
 }
 
+function openSellModal(nft) {
+  resetBuyModalView();
+  pendingSellNft = nft;
+  pendingBuyNft = null;
+  const commission = nft.price * SELL_COMMISSION;
+  const total = nft.price - commission;
+  buyNftImg.src = nftUrl(nft);
+  buyNftImg.alt = `${nft.name} #${nft.id}`;
+  buyQuestion.innerHTML = `Вы точно хотите продать ${nft.name} #${nft.id} за <code>${nft.price}</code> GRAM?`;
+  buyPrice.innerHTML = `<code>${nft.price}</code> GRAM`;
+  buyCommission.innerHTML = `<code>${commission.toFixed(2)}</code> GRAM`;
+  buyTotal.innerHTML = `<code>${total.toFixed(2)}</code> GRAM`;
+  clearBuyActions();
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.innerHTML = `Продать за <code>${total.toFixed(2)}</code> GRAM`;
+  confirmBtn.addEventListener('click', () => {
+    handleConfirmSell(nft, total);
+  });
+  buyActions.appendChild(confirmBtn);
+
+  createBuyButton('Отказаться', closeBuyModal);
+
+  buyOverlay.classList.add('open');
+}
+
+function handleConfirmSell(nft, total) {
+  const idx = inventory.findIndex(inv => inv.id === nft.id);
+  if (idx !== -1) {
+    inventory.splice(idx, 1);
+    balance += total;
+    saveBalance();
+    saveInventory();
+    updateControls();
+    renderInventoryPage();
+    renderShop();
+    updateInfo();
+  }
+  buyQuestion.textContent = `Подарок ${nft.name} #${nft.id} успешно продан за ${total.toFixed(2)} GRAM!`;
+  buyTable.style.display = 'none';
+  clearBuyActions();
+  createBuyButton('Закрыть', closeBuyModal);
+}
+
+function openSellAllModal() {
+  if (!inventory.length) return;
+  resetBuyModalView();
+  sellAllMode = true;
+  pendingBuyNft = null;
+  pendingSellNft = null;
+  buyNftImg.style.display = 'none';
+
+  let totalSum = 0;
+  inventory.forEach(nft => {
+    const net = nft.price - nft.price * SELL_COMMISSION;
+    totalSum += net;
+    const row = document.createElement('div');
+    row.className = 'sell-all-row';
+    row.innerHTML = `
+      <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
+      <span class="nft-name">${nft.name} #${nft.id}</span>
+      <span class="nft-total"><code>${net.toFixed(2)}</code> GRAM</span>
+    `;
+    sellAllList.appendChild(row);
+  });
+
+  const count = inventory.length;
+  const word = count === 1 ? 'подарок' : (count > 1 && count < 5 ? 'подарка' : 'подарков');
+  buyQuestion.textContent = `Вы уверены, что хотите продать ${count} ${word} за ${totalSum.toFixed(2)} GRAM?`;
+  sellAllList.style.display = 'flex';
+  sellAllTotal.style.display = 'flex';
+  sellAllTotalValue.innerHTML = `<code>${totalSum.toFixed(2)}</code> GRAM`;
+  buyTable.style.display = 'none';
+  clearBuyActions();
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.innerHTML = `Продать за <code>${totalSum.toFixed(2)}</code> GRAM`;
+  confirmBtn.addEventListener('click', () => {
+    handleConfirmSellAll(totalSum, count);
+  });
+  buyActions.appendChild(confirmBtn);
+
+  createBuyButton('Закрыть', closeBuyModal);
+
+  buyOverlay.classList.add('open');
+}
+
+function handleConfirmSellAll(totalSum, count) {
+  inventory = [];
+  balance += totalSum;
+  saveBalance();
+  saveInventory();
+  updateControls();
+  renderInventoryPage();
+  renderShop();
+  updateInfo();
+  const word = count === 1 ? 'подарок' : (count > 1 && count < 5 ? 'подарка' : 'подарков');
+  buyQuestion.textContent = `Успешно продано ${count} ${word} за ${totalSum.toFixed(2)} GRAM!`;
+  sellAllList.style.display = 'none';
+  sellAllTotal.style.display = 'none';
+  clearBuyActions();
+  createBuyButton('Закрыть', closeBuyModal);
+}
+
 function closeBuyModal() {
   buyOverlay.classList.remove('open');
   pendingBuyNft = null;
-  buyTable.style.display = 'flex';
+  pendingSellNft = null;
+  resetBuyModalView();
   clearBuyActions();
 }
 
@@ -1707,6 +1902,9 @@ inventoryClose.addEventListener('click', closeInventory);
 inventoryOverlay.addEventListener('click', (e) => {
   if (e.target === inventoryOverlay) closeInventory();
 });
+
+sellAllNftBtn.addEventListener('click', openSellAllModal);
+depositNftBtn.addEventListener('click', openInventory);
 
 navHome.addEventListener('click', () => showPage('game'));
 navInventory.addEventListener('click', () => showPage('inventory'));
