@@ -947,6 +947,10 @@ function nftUrl(nft) {
   const cleanName = nft.name.toLowerCase().replace(/[^a-z]/g, '');
   return `https://nft.fragment.com/gift/${cleanName}-${nft.id}.small.jpg`;
 }
+function tgUrl(nft) {
+  const cleanName = nft.name.toLowerCase().replace(/[^a-z]/g, '');
+  return `https://t.me/nft/${cleanName}-${nft.id}`;
+}
 
 function calcCoefficients(p) {
   const R = 0.5 * (1 - p);
@@ -1552,7 +1556,7 @@ function renderInventoryPage() {
     const item = document.createElement('div');
     item.className = 'inventory-item';
     item.innerHTML = `
-      <a href="t.me/nft/${nft.name}-${nft.id}"><img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}"></a>
+      <a href="${tgUrl(nft)}"><img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}"></a>
       <code class="inv-price">${nft.price} <img src="gram.png"></code>
       <button class="sell-btn"><span>Продать</span></button>
       <button class="withdraw-btn"><span>Вывести</span></button>
