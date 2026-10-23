@@ -1727,7 +1727,7 @@ function openSellModal(nft) {
   const total = nft.price - commission;
   buyNftImg.src = nftUrl(nft);
   buyNftImg.alt = `${nft.name} #${nft.id}`;
-  buyQuestion.innerHTML = `Вы точно хотите продать ${nft.name} #${nft.id} за <code>${nft.price}</code> GRAM?`;
+  buyQuestion.innerHTML = `Вы точно хотите продать ${nft.name} #${nft.id} за <code>${total.toFixed(2)}</code> GRAM?`;
   buyPrice.innerHTML = `<code>${nft.price}</code> GRAM`;
   buyCommission.innerHTML = `<code>${commission.toFixed(2)}</code> GRAM`;
   buyTotal.innerHTML = `<code>${total.toFixed(2)}</code> GRAM`;
@@ -1787,7 +1787,7 @@ function openSellAllModal() {
 
   const count = inventory.length;
   const word = count === 1 ? 'подарок' : (count > 1 && count < 5 ? 'подарка' : 'подарков');
-  buyQuestion.textContent = `Вы уверены, что хотите продать ${count} ${word} за ${totalSum.toFixed(2)} GRAM?`;
+  buyQuestion.innerHTML = `Вы уверены, что хотите продать ${count} ${word} за <code>${totalSum.toFixed(2)}</code> GRAM?`;
   sellAllList.style.display = 'flex';
   sellAllTotal.style.display = 'flex';
   sellAllTotalValue.innerHTML = `<code>${totalSum.toFixed(2)}</code> GRAM`;
@@ -1904,7 +1904,7 @@ inventoryOverlay.addEventListener('click', (e) => {
 });
 
 sellAllNftBtn.addEventListener('click', openSellAllModal);
-depositNftBtn.addEventListener('click', openInventory);
+depositNftBtn.addEventListener('click', () => {});
 
 navHome.addEventListener('click', () => showPage('game'));
 navInventory.addEventListener('click', () => showPage('inventory'));
