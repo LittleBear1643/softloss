@@ -20,6 +20,9 @@
   button { cursor: pointer; outline: none; }
   img { -webkit-user-drag: none; }
   body {
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%; 
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -125,6 +128,16 @@
   .shop-page.active {
     display: flex;
   }
+  .inventory-page {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100vw;
+    padding: 10px;
+  }
+  .inventory-page.active {
+    display: flex;
+  }
   .shop-title {
     font-size: 28px;
     font-weight: 600;
@@ -135,7 +148,8 @@
   .shop-grid {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
+    padding-left: 4px;
     width: 100vw;
   }
   .shop-grid .inventory-item {
@@ -349,13 +363,19 @@
     cursor: pointer;
     text-align: center;
   }
-  .inventory-item img {
+  .inventory-item img, .inventory-item a img {
     width: 100%;
     border-radius: 6px;
     aspect-ratio: 1;
     object-fit: cover;
     display: block;
     -webkit-user-drag: none;
+  }
+  .inventory-item a {
+    width: 100%;
+    border-radius: 6px;
+    aspect-ratio: 1;
+    text-decoration: none;
   }
   .inventory-item .inv-price {
     display: flex;
@@ -375,8 +395,13 @@
     margin-top: 4px;
     padding-bottom: 4px;
     width: 100%;
+    line-height: 1.5;
     border-radius: 6px;
     border: solid 1px #777;
+  }
+  .inventory-item button span {
+    position: relative;
+    top: 3px;
   }
 
   .game-over-overlay {
@@ -653,6 +678,11 @@
     <div class="shop-title">Маркет</div>
     <div class="shop-grid" id="shopGrid"></div>
   </div>
+
+  <div class="inventory-page" id="inventoryPage">
+    <div class="shop-title">Инвентарь</div>
+    <div class="shop-grid" id="inventoryGrid"></div>
+  </div>
 </div>
 
 <nav class="bottom-nav">
@@ -728,7 +758,9 @@ const gameOverBet = document.getElementById('gameOverBet');
 const topbarUser = document.getElementById('topbarUser');
 const gamePage = document.getElementById('gamePage');
 const shopPage = document.getElementById('shopPage');
+const inventoryPage = document.getElementById('inventoryPage');
 const shopGrid = document.getElementById('shopGrid');
+const inventoryGrid = document.getElementById('inventoryGrid');
 const contentEl = document.getElementById('content');
 const navHome = document.getElementById('navHome');
 const navInventory = document.getElementById('navInventory');
@@ -1506,6 +1538,29 @@ function renderShop() {
   });
 }
 
+function renderInventoryPage() {
+  inventoryGrid.innerHTML = '';
+  if (!inventory.length) {
+    const empty = document.createElement('div');
+    empty.className = 'inventory-empty';
+    empty.textContent = 'Нет NFT в инвентаре';
+    inventoryGrid.appendChild(empty);
+    return;
+  }
+  const list = inventory.slice().sort((a, b) => a.price - b.price);
+  list.forEach(nft => {
+    const item = document.createElement('div');
+    item.className = 'inventory-item';
+    item.innerHTML = `
+      <a href="t.me/nft/${nft.name}-${nft.id}"><img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}"></a>
+      <code class="inv-price">${nft.price} <img src="gram.png"></code>
+      <button class="sell-btn"><span>Продать</span></button>
+      <button class="withdraw-btn"><span>Вывести</span></button>
+    `;
+    inventoryGrid.appendChild(item);
+  });
+}
+
 function clearBuyActions() {
   buyActions.innerHTML = '';
 }
@@ -1551,6 +1606,7 @@ function handleConfirmBuy(nft, total) {
     saveInventory();
     updateControls();
     renderShop();
+    renderInventoryPage();
     updateInfo();
     buyQuestion.textContent = `Подарок ${nft.name} #${nft.id} успешно куплен за ${total.toFixed(2)} GRAM!`;
     buyTable.style.display = 'none';
@@ -1580,10 +1636,17 @@ function showPage(page) {
   if (page === 'game') {
     gamePage.classList.remove('hidden');
     shopPage.classList.remove('active');
+    inventoryPage.classList.remove('active');
   } else if (page === 'shop') {
     gamePage.classList.add('hidden');
     shopPage.classList.add('active');
+    inventoryPage.classList.remove('active');
     renderShop();
+  } else if (page === 'inventory') {
+    gamePage.classList.add('hidden');
+    shopPage.classList.remove('active');
+    inventoryPage.classList.add('active');
+    renderInventoryPage();
   }
   contentEl.scrollTop = 0;
 }
@@ -1642,6 +1705,7 @@ inventoryOverlay.addEventListener('click', (e) => {
 });
 
 navHome.addEventListener('click', () => showPage('game'));
+navInventory.addEventListener('click', () => showPage('inventory'));
 navShop.addEventListener('click', () => showPage('shop'));
 
 buyOverlay.addEventListener('click', (e) => {
