@@ -38,31 +38,10 @@
     padding: 8px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     background: #ffffff;
     border-bottom: 1px solid #cccccc;
     flex-shrink: 0;
-  }
-  .topbar-user {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .topbar-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-  .topbar-name {
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 140px;
   }
   .topbar-right {
     display: flex;
@@ -527,8 +506,8 @@
     flex-shrink: 0;
   }
   .bottom-nav button {
-    flex: 1 1 33.333%;
-    width: 33.333%;
+    flex: 1 1 25%;
+    width: 25%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -546,6 +525,15 @@
   .bottom-nav button i {
     font-size: 20px;
     line-height: 1;
+  }
+  .nav-profile-avatar {
+    width: 24px;
+    height: 24px;
+    position: relative;
+    top: -2px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
   }
 
   .buy-overlay {
@@ -660,7 +648,6 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="topbar-user" id="topbarUser"></div>
   <div class="topbar-right">
     <div class="topbar-balance">
       <code id="balance"></code>
@@ -751,6 +738,7 @@
   <button type="button" class="nav-btn" id="navHome"><i class="fi fi-rr-home"></i><span>Главная</span></button>
   <button type="button" class="nav-btn" id="navInventory"><i class="fi fi-rr-gift-box-benefits"></i><span>Инвентарь</span></button>
   <button type="button" class="nav-btn" id="navShop"><i class="fi fi-rr-shop"></i><span>Маркет</span></button>
+  <button type="button" class="nav-btn" id="navProfile"><img class="nav-profile-avatar" id="navProfileAvatar" src="user.png" alt=""><span>Профиль</span></button>
 </nav>
 
 <div class="inventory-overlay" id="inventoryOverlay">
@@ -822,7 +810,6 @@ const gameOverOverlay = document.getElementById('gameOverOverlay');
 const gameOverTitle = document.getElementById('gameOverTitle');
 const gameOverReward = document.getElementById('gameOverReward');
 const gameOverBet = document.getElementById('gameOverBet');
-const topbarUser = document.getElementById('topbarUser');
 const gamePage = document.getElementById('gamePage');
 const shopPage = document.getElementById('shopPage');
 const inventoryPage = document.getElementById('inventoryPage');
@@ -832,6 +819,7 @@ const contentEl = document.getElementById('content');
 const navHome = document.getElementById('navHome');
 const navInventory = document.getElementById('navInventory');
 const navShop = document.getElementById('navShop');
+const navProfileAvatar = document.getElementById('navProfileAvatar');
 const buyOverlay = document.getElementById('buyOverlay');
 const buyNftImg = document.getElementById('buyNftImg');
 const buyQuestion = document.getElementById('buyQuestion');
@@ -861,8 +849,8 @@ const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
 const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
 const TRAIL_LIFETIME = 500;
-const MARKET_COMMISSION = 0.1;
-const SELL_COMMISSION = 0.1;
+const MARKET_COMMISSION = 0.06;
+const SELL_COMMISSION = 0.06;
 
 const ALL_NFTS = [
   { name: 'Lunar Snake', id: 154204, price: 3.57 },
@@ -988,24 +976,11 @@ let inventory = (() => {
 let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
 let flying = false, accelerating = false;
 
-function initTopbarUser() {
+function initProfileAvatar() {
   if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
     const user = window.Telegram.WebApp.initDataUnsafe.user;
-    if (user) {
-      const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || '';
-      if (user.photo_url) {
-        const img = document.createElement('img');
-        img.className = 'topbar-avatar';
-        img.src = user.photo_url;
-        img.alt = name;
-        topbarUser.appendChild(img);
-      }
-      if (name) {
-        const span = document.createElement('span');
-        span.className = 'topbar-name';
-        span.textContent = name;
-        topbarUser.appendChild(span);
-      }
+    if (user && user.photo_url) {
+      navProfileAvatar.src = user.photo_url;
     }
   }
 }
@@ -1922,7 +1897,7 @@ presetBtns.forEach(btn => {
   });
 });
 
-initTopbarUser();
+initProfileAvatar();
 currentLayout = buildLayout(30);
 fieldPainted = true;
 updateSections();
