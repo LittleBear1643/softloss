@@ -1531,7 +1531,7 @@ function renderShop() {
     const item = document.createElement('div');
     item.className = 'inventory-item';
     item.innerHTML = `
-      <img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}">
+      <a href="${tgUrl(nft)}"><img src="${nftUrl(nft)}" alt="${nft.name} #${nft.id}"></a>
       <button><code class="inv-price">${nft.price} <img src="gram.png"></code></button>
     `;
     item.querySelector('button').addEventListener('click', (e) => {
