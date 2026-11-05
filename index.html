@@ -5,12 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>softloss</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap" rel="stylesheet">
 <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/4.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css'>
 <style>
   * { 
     margin: 0; 
     padding: 0; 
+    outline: none;
     box-sizing: border-box; 
+    font-family: "Google Sans", sans-serif;
     user-select: none; 
     -webkit-user-drag: none;
     -webkit-tap-highlight-color: transparent;
@@ -29,7 +34,6 @@
     align-items: center;
     background: #ffffff;
     overflow: hidden;
-    font-family: sans-serif;
     font-size: 12px;
     -webkit-text-size-adjust: 100%;
   }
@@ -53,7 +57,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-family: monospace;
     font-size: 16px;
     font-weight: bold;
   }
@@ -150,7 +153,13 @@
     padding: 6px 0;
     font-size: 14px;
   }
-  .game { border: 3px solid #000000; display: block; max-width: 100%; -webkit-user-drag: none; }
+  .game {
+    border: 3px solid #000000;
+    display: block;
+    max-width: 100%;
+    -webkit-user-drag: none;
+    border-radius: 6px;
+  }
   .controls {
     width: 250px;
     display: flex;
@@ -168,11 +177,33 @@
   .controls input[type="checkbox"] { margin-right: 4px; }
   .controls span { min-width: 40px; text-align: right; font-weight: bold; }
   .controls input[type="number"] { width: 70px; padding: 3px; }
-  .controls button { padding: 3px 8px; }
+  .controls button {
+    padding: 3px 8px;
+    border: solid 1px #bbb;
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 4px 10px;
+    font-weight: 500;
+  }
   .bet-row { gap: 4px; }
-  .bet-row input[type="number"] { flex: 1; min-width: 0; width: auto; }
+  .bet-row input[type="number"] {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    border: solid 1px #bbb;
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 4px 6px;
+  }
   .spin-row { width: 250px; }
-  .spin-row button { width: 100%; padding: 8px 0; font-size: 14px; }
+  .spin-row button {
+    width: 100%; padding: 8px 0; font-size: 18px;
+    background: #0075ff;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
   #result {
     width: 250px;
     min-height: 1.5em;
@@ -276,15 +307,19 @@
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    background: #30a1f5;
+    background: #0075ff; 
     color: #fff;
   }
   .cube-gram > img {
-    width: 32px;
+    position: relative;
+    top: 2px;
+    width: 20px;
     -webkit-user-drag: none;
   }
   .cube-gram > code {
     position: relative;
+    width: 100%;
+    text-align: center;
     top: -3px;
   }
   
@@ -516,7 +551,6 @@
     padding: 10px 8px 8px 8px;
     background: none;
     border: none;
-    font-family: sans-serif;
     font-size: 11px;
     color: #333;
     cursor: pointer;
@@ -682,7 +716,7 @@
 
     <div class="controls bet-row">
       <button id="betMinus">−</button>
-      <input type="number" id="bet" value="1" min="0" step="0.1">
+      <input type="number" id="bet" value="1.00" min="0" step="0.1">
       <button id="betPlus">+</button>
       <button id="betMax">МАКС</button>
     </div>
@@ -778,6 +812,8 @@
   </div>
 </div>
 
+<input type="checkbox" id="iosHapticSwitch" switch style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" aria-hidden="true" tabindex="-1">
+
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <script>
 if (window.Telegram && window.Telegram.WebApp) {
@@ -833,6 +869,7 @@ const sellAllTotal = document.getElementById('sellAllTotal');
 const sellAllTotalValue = document.getElementById('sellAllTotalValue');
 const sellAllNftBtn = document.getElementById('sellAllNft');
 const depositNftBtn = document.getElementById('depositNft');
+const iosHapticSwitch = document.getElementById('iosHapticSwitch');
 
 const FIELD_SIZE = 250;
 const BALL_RADIUS = 6.25;
@@ -842,18 +879,38 @@ const MIN_SPEED = 0.05;
 const ACCEL_RATE = (1 - FRICTION) * 5;
 const FAST_MULTIPLIER = 5;
 const MARGIN = 0.05;
-const INITIAL_BALANCE = 100;
+const INITIAL_BALANCE = 5;
 const STORAGE_KEY = 'ricochet_balance';
 const INVENTORY_KEY = 'ricochet_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
 const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
 const TRAIL_LIFETIME = 500;
-const MARKET_COMMISSION = 0.06;
-const SELL_COMMISSION = 0.06;
+const MARKET_COMMISSION = 0.05;
+const SELL_COMMISSION = 0.05;
+const HAPTIC_MIN_INTERVAL = 30;
+
+// const ALL_NFTS = [
+//   { name: 'Whip Cupcake', id: 1, price: 3.00 },
+//   { name: 'Candy Cane', id: 1, price: 3.25 },
+//   { name: 'Chill Flame', id: 1, price: 3.50 },
+//   { name: 'Pool Float', id: 1, price: 3.75 },
+//   { name: 'Snake Box', id: 1, price: 4.00 },
+//   { name: 'Instant Ramen', id: 1, price: 4.50 },
+//   { name: 'Vice Cream', id: 1, price: 5.00 },
+//   { name: 'Lunar Snake', id: 1, price: 5.75 },
+//   { name: 'Xmas Stocking', id: 1, price: 6.50 },
+//   { name: 'Homemade Cake', id: 1, price: 7.25 },
+//   { name: 'Hex Pot', id: 1, price: 8.00 },
+//   { name: 'Liberty Figure', id: 1, price: 9.00 },
+//   { name: 'Ginger Cookie', id: 1, price: 10.00 },
+//   { name: 'Mood Pack', id: 1, price: 11.50 },
+//   { name: 'Party Sparkler', id: 1, price: 13.00 },
+//   { name: 'Fresh Socks', id: 1, price: 15.00 },
+// ];
 
 const ALL_NFTS = [
-  { name: 'Lunar Snake', id: 154204, price: 3.57 },
+  { name: 'Lunar Snake', id: 24434, price: 3.64 },
   { name: 'Lunar Snake', id: 161673, price: 3.64 },
   { name: 'Lunar Snake', id: 10171, price: 3.77 },
   { name: 'Lunar Snake', id: 102614, price: 3.96 },
@@ -937,7 +994,7 @@ const ALL_NFTS = [
   { name: 'Heart Locket', id: 1647, price: 1065.42 },
   { name: 'Heart Locket', id: 1103, price: 1193.27 },
   { name: 'Heart Locket', id: 412, price: 1336.47 }
-];
+]
 
 let currentLayout = null;
 let fieldPainted = false;
@@ -955,6 +1012,8 @@ let sellAllMode = false;
 let trailPoints = [];
 let lastTrailX = null;
 let lastTrailY = null;
+
+let lastHapticTime = 0;
 
 let balance = (() => {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -975,6 +1034,33 @@ let inventory = (() => {
 
 let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
 let flying = false, accelerating = false;
+
+function lightVibrate() {
+  const now = performance.now();
+  if (now - lastHapticTime < HAPTIC_MIN_INTERVAL) return;
+  lastHapticTime = now;
+
+  try {
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      return;
+    }
+  } catch (e) {}
+
+  try {
+    if (navigator.vibrate) {
+      navigator.vibrate(8);
+      return;
+    }
+  } catch (e) {}
+
+  try {
+    if (iosHapticSwitch) {
+      iosHapticSwitch.checked = true;
+      setTimeout(() => { iosHapticSwitch.checked = false; }, 0);
+    }
+  } catch (e) {}
+}
 
 function initProfileAvatar() {
   if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
@@ -1085,7 +1171,7 @@ function createGramCube(amount, isDeposit = false) {
   if (amount <= 0) return null;
   const gramCube = document.createElement('div');
   gramCube.className = 'cube cube-gram';
-  gramCube.innerHTML = `<img src="gram.png"><code>${amount.toFixed(2)}</code>`;
+  gramCube.innerHTML = `<img src="gram.svg"><code>${amount.toFixed(2)}</code>`;
   
   if (isDeposit) {
     gramCube.style.cursor = 'pointer';
@@ -1256,6 +1342,7 @@ function updateTrail(now) {
     trailPoints.push({ x, y, time: now });
     lastTrailX = x;
     lastTrailY = y;
+    lightVibrate();
   }
 }
 
@@ -1445,7 +1532,7 @@ function showGameOver(isWin, winNft, winGram, betNfts, betAmount) {
   if (winGram > 0) {
     const gramCube = document.createElement('div');
     gramCube.className = 'cube cube-gram';
-    gramCube.innerHTML = `<img src="gram.png"><code>${winGram.toFixed(2)}</code>`;
+    gramCube.innerHTML = `<img src="gram.svg"><code>${winGram.toFixed(2)}</code>`;
     gramCube.style.margin = '0';
     gameOverReward.appendChild(gramCube);
   }
@@ -1463,7 +1550,7 @@ function showGameOver(isWin, winNft, winGram, betNfts, betAmount) {
   if (betAmount > 0) {
     const gramCube = document.createElement('div');
     gramCube.className = 'cube cube-gram';
-    gramCube.innerHTML = `<img src="gram.png"><code>${betAmount.toFixed(2)}</code>`;
+    gramCube.innerHTML = `<img src="gram.svg"><code>${betAmount.toFixed(2)}</code>`;
     gramCube.style.margin = '0';
     gameOverBet.appendChild(gramCube);
   }
