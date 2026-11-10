@@ -205,6 +205,10 @@
     border-radius: 20px;
     letter-spacing: 1px;
   }
+  .spin-row button:disabled {
+    background: #cccccc;
+    cursor: default;
+  }
   #result {
     width: 250px;
     min-height: 1.5em;
@@ -712,7 +716,8 @@
     </div>
 
     <div class="controls">
-      <label><input type="checkbox" id="fastMode"> Быстрый режим</label>
+      <label><input type="checkbox" id="fastMode"> Быстрый</label>
+      <label><input type="checkbox" id="demoMode"> Демо</label>
     </div>
 
     <div class="controls bet-row">
@@ -831,6 +836,7 @@ const betInput = document.getElementById('bet');
 const spinBtn = document.getElementById('spin');
 const resetBtn = document.getElementById('reset');
 const fastModeEl = document.getElementById('fastMode');
+const demoModeEl = document.getElementById('demoMode');
 const balanceEl = document.getElementById('balance');
 const resultEl = document.getElementById('result');
 const presetBtns = document.querySelectorAll('.chance-preset');
@@ -883,6 +889,8 @@ const MARGIN = 0.05;
 const INITIAL_BALANCE = 5;
 const STORAGE_KEY = 'ricochet_balance';
 const INVENTORY_KEY = 'ricochet_inventory';
+const DEMO_STORAGE_KEY = 'ricochet_demo_balance';
+const DEMO_INVENTORY_KEY = 'ricochet_demo_inventory';
 const COLORS = { red: '#e00000', green: '#00b300' };
 const BET_STEP = 0.1;
 const TRAIL_INTERVAL = FIELD_SIZE * 0.05;
@@ -890,25 +898,7 @@ const TRAIL_LIFETIME = 500;
 const MARKET_COMMISSION = 0.05;
 const SELL_COMMISSION = 0.05;
 const HAPTIC_MIN_INTERVAL = 30;
-
-// const ALL_NFTS = [
-//   { name: 'Whip Cupcake', id: 1, price: 3.00 },
-//   { name: 'Candy Cane', id: 1, price: 3.25 },
-//   { name: 'Chill Flame', id: 1, price: 3.50 },
-//   { name: 'Pool Float', id: 1, price: 3.75 },
-//   { name: 'Snake Box', id: 1, price: 4.00 },
-//   { name: 'Instant Ramen', id: 1, price: 4.50 },
-//   { name: 'Vice Cream', id: 1, price: 5.00 },
-//   { name: 'Lunar Snake', id: 1, price: 5.75 },
-//   { name: 'Xmas Stocking', id: 1, price: 6.50 },
-//   { name: 'Homemade Cake', id: 1, price: 7.25 },
-//   { name: 'Hex Pot', id: 1, price: 8.00 },
-//   { name: 'Liberty Figure', id: 1, price: 9.00 },
-//   { name: 'Ginger Cookie', id: 1, price: 10.00 },
-//   { name: 'Mood Pack', id: 1, price: 11.50 },
-//   { name: 'Party Sparkler', id: 1, price: 13.00 },
-//   { name: 'Fresh Socks', id: 1, price: 15.00 },
-// ];
+const DEMO_WIN_CHANCE = 0.5;
 
 const ALL_NFTS = [
   { name: 'Lunar Snake', id: 24434, price: 3.64 },
@@ -1016,14 +1006,24 @@ let lastTrailY = null;
 
 let lastHapticTime = 0;
 
-let balance = (() => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const parsed = stored !== null ? parseFloat(stored) : NaN;
-  return Number.isFinite(parsed) ? parsed : INITIAL_BALANCE;
-})();
+let balance = loadBalance(false);
+let inventory = loadInventory(false);
+let demoBalance = loadBalance(true);
+let demoInventory = loadInventory(true);
 
-let inventory = (() => {
-  const stored = localStorage.getItem(INVENTORY_KEY);
+function loadBalance(isDemo) {
+  const key = isDemo ? DEMO_STORAGE_KEY : STORAGE_KEY;
+  const stored = localStorage.getItem(key);
+  if (stored !== null) {
+    const parsed = parseFloat(stored);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return INITIAL_BALANCE;
+}
+
+function loadInventory(isDemo) {
+  const key = isDemo ? DEMO_INVENTORY_KEY : INVENTORY_KEY;
+  const stored = localStorage.getItem(key);
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
@@ -1031,7 +1031,51 @@ let inventory = (() => {
     } catch (e) {}
   }
   return [];
-})();
+}
+
+function getBalance() {
+  return demoModeEl.checked ? demoBalance : balance;
+}
+
+function setBalance(val) {
+  if (demoModeEl.checked) {
+    demoBalance = val;
+    localStorage.setItem(DEMO_STORAGE_KEY, String(demoBalance));
+  } else {
+    balance = val;
+    localStorage.setItem(STORAGE_KEY, String(balance));
+  }
+}
+
+function getInventory() {
+  return demoModeEl.checked ? demoInventory : inventory;
+}
+
+function setInventory(val) {
+  if (demoModeEl.checked) {
+    demoInventory = val;
+    localStorage.setItem(DEMO_INVENTORY_KEY, JSON.stringify(demoInventory));
+  } else {
+    inventory = val;
+    localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory));
+  }
+}
+
+function saveBalance() {
+  if (demoModeEl.checked) {
+    localStorage.setItem(DEMO_STORAGE_KEY, String(demoBalance));
+  } else {
+    localStorage.setItem(STORAGE_KEY, String(balance));
+  }
+}
+
+function saveInventory() {
+  if (demoModeEl.checked) {
+    localStorage.setItem(DEMO_INVENTORY_KEY, JSON.stringify(demoInventory));
+  } else {
+    localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory));
+  }
+}
 
 let x = 0, y = 0, vx = 0, vy = 0, dirX = 0, dirY = 0, speed = 0;
 let flying = false, accelerating = false;
@@ -1070,14 +1114,6 @@ function initProfileAvatar() {
       navProfileAvatar.src = user.photo_url;
     }
   }
-}
-
-function saveBalance() {
-  localStorage.setItem(STORAGE_KEY, String(balance));
-}
-
-function saveInventory() {
-  localStorage.setItem(INVENTORY_KEY, JSON.stringify(inventory));
 }
 
 function nftUrl(nft) {
@@ -1125,6 +1161,64 @@ function buildLayout(greenPct) {
   return { dir, sections };
 }
 
+function buildLayoutForTarget(greenPct, targetCoord, fixedDir) {
+  const dir = fixedDir;
+  const canRGR = (100 - greenPct) >= 20;
+  const canGRG = greenPct >= 20;
+
+  for (let attempt = 0; attempt < 500; attempt++) {
+    let pattern;
+    if (canRGR && canGRG) pattern = Math.random() < 0.5 ? 'RGR' : 'GRG';
+    else if (canGRG) pattern = 'GRG';
+    else pattern = 'RGR';
+
+    let sections;
+    if (pattern === 'RGR') {
+      const redTotal = 100 - greenPct;
+      const r1 = 10 + Math.random() * Math.max(0, redTotal - 20);
+      sections = [
+        { percent: r1, type: 'red' },
+        { percent: greenPct, type: 'green' },
+        { percent: redTotal - r1, type: 'red' }
+      ];
+    } else {
+      const g1 = 10 + Math.random() * Math.max(0, greenPct - 20);
+      sections = [
+        { percent: g1, type: 'green' },
+        { percent: 100 - greenPct, type: 'red' },
+        { percent: greenPct - g1, type: 'green' }
+      ];
+    }
+    const layout = { dir, sections };
+    if (isCoordInGreen(layout, targetCoord)) return layout;
+  }
+
+  const innerSize = FIELD_SIZE - BALL_RADIUS * 2;
+  const tPct = Math.max(0, Math.min(1, targetCoord / innerSize)) * 100;
+  const sections = [];
+  if (tPct < greenPct) {
+    sections.push({ percent: greenPct, type: 'green' });
+    sections.push({ percent: 100 - greenPct, type: 'red' });
+  } else {
+    sections.push({ percent: 100 - greenPct, type: 'red' });
+    sections.push({ percent: greenPct, type: 'green' });
+  }
+  return { dir, sections };
+}
+
+function isCoordInGreen(layout, coord) {
+  const innerSize = FIELD_SIZE - BALL_RADIUS * 2;
+  let offset = 0;
+  for (const s of layout.sections) {
+    const size = innerSize * s.percent / 100;
+    if (coord >= offset && coord < offset + size) {
+      return s.type === 'green';
+    }
+    offset += size;
+  }
+  return false;
+}
+
 function updateSections() {
   greenPercent = Number(slider.value);
   chanceValue.textContent = greenPercent + '%';
@@ -1138,9 +1232,10 @@ function getDepositTotal() {
 }
 
 function getAvailableNfts(limitAmount) {
+  const inv = getInventory();
   return ALL_NFTS.filter(n => {
     if (n.price > limitAmount) return false;
-    const inInv = inventory.some(inv => inv.id === n.id);
+    const inInv = inv.some(inv => inv.id === n.id);
     const inDeposit = depositNfts.some(dep => dep.id === n.id);
     return !inInv && !inDeposit;
   });
@@ -1247,9 +1342,10 @@ function renderDepositNfts() {
     img.title = `${nft.name} #${nft.id} — ${nft.price} GRAM`;
     img.addEventListener('click', () => {
       if (flying || pendingResult) return;
-      inventory.push({ ...nft });
+      const inv = getInventory();
+      inv.push({ ...nft });
+      setInventory(inv);
       depositNfts.splice(idx, 1);
-      saveInventory();
       updateInfo();
       updateControls();
     });
@@ -1282,9 +1378,10 @@ function updateControls() {
   const busy = flying || pendingResult;
   const bet = Number(betInput.value) || 0;
   const total = getDepositTotal();
+  const bal = getBalance();
   
   const minBet = depositNfts.length > 0 ? 0 : 0.5;
-  spinBtn.disabled = busy || total <= 0 || bet > balance || bet < minBet;
+  spinBtn.disabled = busy || total <= 0 || bet > bal || bet < minBet;
   
   betInput.disabled = busy;
   slider.disabled = busy;
@@ -1292,7 +1389,7 @@ function updateControls() {
   presetBtns.forEach(btn => btn.disabled = busy);
   betMinusBtn.disabled = busy;
   betPlusBtn.disabled = busy;
-  betMaxBtn.disabled = busy || balance <= 0;
+  betMaxBtn.disabled = busy || bal <= 0;
   
   const addNftBtnEl = depositContainer.querySelector('.cube-add-nft');
   if (addNftBtnEl) {
@@ -1305,7 +1402,7 @@ function updateControls() {
     }
   }
 
-  balanceEl.textContent = balance.toFixed(2);
+  balanceEl.textContent = bal.toFixed(2);
 }
 
 function spawnBall() {
@@ -1366,6 +1463,31 @@ function update() {
   if (!accelerating && speed < MIN_SPEED) {
     speed = 0; vx = 0; vy = 0; flying = false;
   }
+}
+
+function simulateStop(startX, startY, startDirX, startDirY) {
+  let sx = startX, sy = startY;
+  let sdirX = startDirX, sdirY = startDirY;
+  let sspeed = 0;
+  let saccel = true;
+  let steps = 0;
+  while (steps < 200000) {
+    steps++;
+    if (saccel) {
+      sspeed += ACCEL_RATE * MAX_SPEED;
+      if (sspeed >= MAX_SPEED) { sspeed = MAX_SPEED; saccel = false; }
+    } else {
+      sspeed *= FRICTION;
+    }
+    sx += sdirX * sspeed;
+    sy += sdirY * sspeed;
+    if (sx - BALL_RADIUS <= 0) { sx = BALL_RADIUS; sdirX = Math.abs(sdirX); }
+    else if (sx + BALL_RADIUS >= FIELD_SIZE) { sx = FIELD_SIZE - BALL_RADIUS; sdirX = -Math.abs(sdirX); }
+    if (sy - BALL_RADIUS <= 0) { sy = BALL_RADIUS; sdirY = Math.abs(sdirY); }
+    else if (sy + BALL_RADIUS >= FIELD_SIZE) { sy = FIELD_SIZE - BALL_RADIUS; sdirY = -Math.abs(sdirY); }
+    if (!saccel && sspeed < MIN_SPEED) break;
+  }
+  return { sx, sy };
 }
 
 function drawField(layout) {
@@ -1475,10 +1597,11 @@ function checkResult() {
     winGram = reward.gram;
 
     if (winNft) {
-      inventory.push(winNft);
-      saveInventory();
+      const inv = getInventory();
+      inv.push(winNft);
+      setInventory(inv);
     }
-    balance += winGram;
+    setBalance(getBalance() + winGram);
     
   } else {
     const returnAmountVal = totalDeposit * R;
@@ -1489,12 +1612,13 @@ function checkResult() {
       winNft = rnft;
       winGram = returnAmountVal - rnft.price;
       
-      inventory.push({ ...rnft });
-      saveInventory();
-      balance += winGram;
+      const inv = getInventory();
+      inv.push({ ...rnft });
+      setInventory(inv);
+      setBalance(getBalance() + winGram);
     } else {
       winGram = returnAmountVal;
-      balance += returnAmountVal;
+      setBalance(getBalance() + returnAmountVal);
     }
   }
   
@@ -1504,6 +1628,7 @@ function checkResult() {
   depositNfts = [];
 
   saveBalance();
+  saveInventory();
   pendingResult = false;
   gameOverVisible = true;
   
@@ -1511,7 +1636,7 @@ function checkResult() {
   updateControls();
 
   const currentBetVal = Number(betInput.value) || 0;
-  if (currentBetVal > balance) {
+  if (currentBetVal > getBalance()) {
     setMaxBet();
   }
 
@@ -1572,7 +1697,8 @@ function spin() {
   const bet = Number(betInput.value);
   const total = getDepositTotal();
   const minBet = depositNfts.length > 0 ? 0 : 0.5;
-  if (!bet && bet !== 0 || bet > balance || bet < minBet) return;
+  const bal = getBalance();
+  if (!bet && bet !== 0 || bet > bal || bet < minBet) return;
   if (total <= 0) return;
   
   gameOverVisible = false;
@@ -1580,21 +1706,76 @@ function spin() {
   
   currentBet = bet;
   spinGreen = greenPercent;
-  currentLayout = buildLayout(spinGreen);
-  fieldPainted = true;
-  balance -= currentBet;
+
+  const isDemoPreplannedWin = demoModeEl.checked && Math.random() < DEMO_WIN_CHANCE;
+
+  if (isDemoPreplannedWin) {
+    const spawnX = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
+    const spawnY = BALL_RADIUS + Math.random() * (FIELD_SIZE - BALL_RADIUS * 2);
+    const angle = Math.random() * Math.PI * 2;
+    const launchDirX = Math.cos(angle);
+    const launchDirY = Math.sin(angle);
+
+    const stop = simulateStop(spawnX, spawnY, launchDirX, launchDirY);
+
+    const dirs = ['tb', 'bt', 'lr', 'rl'];
+    let bestDir = 'tb';
+    let bestScore = -1;
+    for (const d of dirs) {
+      let c;
+      if (d === 'tb') c = stop.sy - BALL_RADIUS;
+      else if (d === 'bt') c = FIELD_SIZE - BALL_RADIUS - stop.sy;
+      else if (d === 'lr') c = stop.sx - BALL_RADIUS;
+      else c = FIELD_SIZE - BALL_RADIUS - stop.sx;
+      const innerSize = FIELD_SIZE - BALL_RADIUS * 2;
+      const pct = c / innerSize;
+      const score = 1 - Math.abs(pct - 0.5);
+      if (score > bestScore) { bestScore = score; bestDir = d; }
+    }
+
+    let targetCoord;
+    if (bestDir === 'tb') targetCoord = stop.sy - BALL_RADIUS;
+    else if (bestDir === 'bt') targetCoord = FIELD_SIZE - BALL_RADIUS - stop.sy;
+    else if (bestDir === 'lr') targetCoord = stop.sx - BALL_RADIUS;
+    else targetCoord = FIELD_SIZE - BALL_RADIUS - stop.sx;
+
+    currentLayout = buildLayoutForTarget(spinGreen, targetCoord, bestDir);
+    fieldPainted = true;
+
+    x = spawnX;
+    y = spawnY;
+    dirX = launchDirX;
+    dirY = launchDirY;
+    speed = 0;
+    vx = 0; vy = 0;
+    accelerating = true;
+    flying = true;
+    trailPoints = [];
+    lastTrailX = x;
+    lastTrailY = y;
+  } else {
+    currentLayout = buildLayout(spinGreen);
+    fieldPainted = true;
+    spawnBall();
+    launch();
+  }
+
+  setBalance(getBalance() - currentBet);
   saveBalance();
   resultEl.textContent = '';
   pendingResult = true;
   
-  spawnBall();
-  launch();
   updateControls();
 }
 
 function resetGame() {
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(INVENTORY_KEY);
+  if (demoModeEl.checked) {
+    localStorage.removeItem(DEMO_STORAGE_KEY);
+    localStorage.removeItem(DEMO_INVENTORY_KEY);
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(INVENTORY_KEY);
+  }
   location.reload();
 }
 
@@ -1611,7 +1792,8 @@ function stepBet(delta) {
 
 function setMaxBet() {
   if (flying || pendingResult) return;
-  const v = Math.floor(balance * 100) / 100;
+  const bal = getBalance();
+  const v = Math.floor(bal * 100) / 100;
   if (v <= 0) return;
   betInput.value = v.toFixed(2);
   updateInfo();
@@ -1630,15 +1812,16 @@ function closeInventory() {
 
 function renderInventory() {
   inventoryList.innerHTML = '';
-  if (!inventory.length) {
+  const inv = getInventory();
+  if (!inv.length) {
     const empty = document.createElement('div');
     empty.className = 'inventory-empty';
     empty.textContent = 'Нет NFT в инвентаре';
     inventoryList.appendChild(empty);
     return;
   }
-    inventory.sort((a, b) => b.price - a.price);
-  inventory.forEach((nft, idx) => {
+  inv.sort((a, b) => b.price - a.price);
+  inv.forEach((nft, idx) => {
     const item = document.createElement('div');
     item.className = 'inventory-item';
     item.innerHTML = `
@@ -1648,12 +1831,14 @@ function renderInventory() {
     item.addEventListener('click', () => {
       if (depositNfts.length >= 5) return;
       depositNfts.push({ ...nft });
-      inventory.splice(idx, 1);
-      saveInventory();
+      const inv2 = getInventory();
+      const idx2 = inv2.findIndex(x => x.id === nft.id);
+      if (idx2 !== -1) inv2.splice(idx2, 1);
+      setInventory(inv2);
       updateInfo();
       updateControls();
       renderInventory();
-      if (!inventory.length) closeInventory();
+      if (!inv2.length) closeInventory();
     });
     inventoryList.appendChild(item);
   });
@@ -1661,8 +1846,9 @@ function renderInventory() {
 
 function renderShop() {
   shopGrid.innerHTML = '';
+  const inv = getInventory();
   const available = ALL_NFTS
-    .filter(n => !inventory.some(inv => inv.id === n.id))
+    .filter(n => !inv.some(inv2 => inv2.id === n.id))
     .slice()
     .sort((a, b) => a.price - b.price);
   available.forEach(nft => {
@@ -1682,14 +1868,15 @@ function renderShop() {
 
 function renderInventoryPage() {
   inventoryGrid.innerHTML = '';
-  if (!inventory.length) {
+  const inv = getInventory();
+  if (!inv.length) {
     const empty = document.createElement('div');
     empty.className = 'inventory-empty';
     empty.textContent = 'Нет NFT в инвентаре';
     inventoryGrid.appendChild(empty);
     return;
   }
-  const list = inventory.slice().sort((a, b) => a.price - b.price);
+  const list = inv.slice().sort((a, b) => a.price - b.price);
   list.forEach(nft => {
     const item = document.createElement('div');
     item.className = 'inventory-item';
@@ -1756,9 +1943,11 @@ function openBuyModal(nft) {
 }
 
 function handleConfirmBuy(nft, total) {
-  if (balance >= total) {
-    balance -= total;
-    inventory.push({ ...nft });
+  if (getBalance() >= total) {
+    setBalance(getBalance() - total);
+    const inv = getInventory();
+    inv.push({ ...nft });
+    setInventory(inv);
     saveBalance();
     saveInventory();
     updateControls();
@@ -1809,10 +1998,12 @@ function openSellModal(nft) {
 }
 
 function handleConfirmSell(nft, total) {
-  const idx = inventory.findIndex(inv => inv.id === nft.id);
+  const inv = getInventory();
+  const idx = inv.findIndex(inv2 => inv2.id === nft.id);
   if (idx !== -1) {
-    inventory.splice(idx, 1);
-    balance += total;
+    inv.splice(idx, 1);
+    setInventory(inv);
+    setBalance(getBalance() + total);
     saveBalance();
     saveInventory();
     updateControls();
@@ -1827,7 +2018,8 @@ function handleConfirmSell(nft, total) {
 }
 
 function openSellAllModal() {
-  if (!inventory.length) return;
+  const inv = getInventory();
+  if (!inv.length) return;
   resetBuyModalView();
   sellAllMode = true;
   pendingBuyNft = null;
@@ -1835,7 +2027,7 @@ function openSellAllModal() {
   buyNftImg.style.display = 'none';
 
   let totalSum = 0;
-  inventory.forEach(nft => {
+  inv.forEach(nft => {
     const net = nft.price - nft.price * SELL_COMMISSION;
     totalSum += net;
     const row = document.createElement('div');
@@ -1848,7 +2040,7 @@ function openSellAllModal() {
     sellAllList.appendChild(row);
   });
 
-  const count = inventory.length;
+  const count = inv.length;
   const word = count === 1 ? 'подарок' : (count > 1 && count < 5 ? 'подарка' : 'подарков');
   buyQuestion.innerHTML = `Вы уверены, что хотите продать ${count} ${word} за <code>${totalSum.toFixed(2)}</code> GRAM?`;
   sellAllList.style.display = 'flex';
@@ -1870,8 +2062,8 @@ function openSellAllModal() {
 }
 
 function handleConfirmSellAll(totalSum, count) {
-  inventory = [];
-  balance += totalSum;
+  setInventory([]);
+  setBalance(getBalance() + totalSum);
   saveBalance();
   saveInventory();
   updateControls();
@@ -1964,6 +2156,17 @@ betMaxBtn.addEventListener('click', setMaxBet);
 inventoryClose.addEventListener('click', closeInventory);
 inventoryOverlay.addEventListener('click', (e) => {
   if (e.target === inventoryOverlay) closeInventory();
+});
+
+demoModeEl.addEventListener('change', () => {
+  if (flying || pendingResult) {
+    demoModeEl.checked = !demoModeEl.checked;
+    return;
+  }
+  updateControls();
+  updateInfo();
+  renderShop();
+  renderInventoryPage();
 });
 
 sellAllNftBtn.addEventListener('click', openSellAllModal);
